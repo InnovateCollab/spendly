@@ -28,6 +28,14 @@ export default function AppTabs() {
           renderingMode="template"
         />
       </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="timeline">
+        <NativeTabs.Trigger.Label>Timeline</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon
+          src={require('@/assets/images/tabIcons/invoice.png')}
+          renderingMode="original"
+        />
+      </NativeTabs.Trigger>
     </NativeTabs>
   );
 }
