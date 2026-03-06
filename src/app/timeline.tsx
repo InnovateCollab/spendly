@@ -7,7 +7,8 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { TRANSACTION_SECTIONS, type Transaction, type TransactionSectionData } from '@/data/transactions';
+import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { type Transaction, type TransactionSectionData } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
 
 // Components
