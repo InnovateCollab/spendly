@@ -7,9 +7,11 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+import { getCategory } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
-import { type Transaction, type TransactionSectionData } from '@/schemas/transaction';
+import { type Transaction, type DailyTransactions } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
+import { formatCurrency, formatDate } from '@/utils/formatting';
 
 // Components
 interface TransactionRowProps {
@@ -18,13 +20,19 @@ interface TransactionRowProps {
 
 const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
   const theme = useTheme();
+  const category = getCategory(transaction.category);
+
+  if (!category) {
+    console.warn(`Category not found: ${transaction.category}`);
+    return null;
+  }
 
   return (
     <View style={styles.tableRow}>
       <SymbolView
-        name={transaction.icon}
+        name={category.icon}
         size={16}
-        tintColor={transaction.color || theme.textSecondary}
+        tintColor={category.color || theme.textSecondary}
         style={styles.rowIcon}
       />
       <View style={styles.rowContent}>
@@ -33,7 +41,7 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
             {transaction.category}
           </ThemedText>
           <ThemedText type="small" style={styles.amountCell}>
-            €{transaction.amount.toFixed(2)}
+            {formatCurrency(transaction.amount)}
           </ThemedText>
         </View>
         {transaction.labels && transaction.labels.length > 0 && (
@@ -58,26 +66,30 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
 };
 
 interface TransactionSectionProps {
-  section: TransactionSectionData;
+  section: DailyTransactions;
 }
 
-const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => (
-  <ThemedView type="backgroundElement" style={styles.section}>
-    <View style={styles.dateHeader}>
-      <ThemedText type="smallBold">{section.date}</ThemedText>
-      <ThemedText type="smallBold">{section.amount}</ThemedText>
-    </View>
-    <View style={styles.table}>
-      {section.transactions.map((tx, idx) => (
-        <TransactionRow key={idx} transaction={tx} />
-      ))}
-    </View>
-  </ThemedView>
-);
+const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
+  const formattedDate = formatDate(section.date);
+
+  return (
+    <ThemedView type="backgroundElement" style={styles.section}>
+      <View style={styles.dateHeader}>
+        <ThemedText type="smallBold">{formattedDate}</ThemedText>
+        <ThemedText type="smallBold">{formatCurrency(section.totalAmount)}</ThemedText>
+      </View>
+      <View style={styles.table}>
+        {section.transactions.map((tx, idx) => (
+          <TransactionRow key={idx} transaction={tx} />
+        ))}
+      </View>
+    </ThemedView>
+  );
+};
 
 // Data - will be replaced with a version that returns this structure [ OLD DATA MOVED TO @/data/transactions
 // Data - will be replaced with a version that gets data from database
-// Currently using static data from @/data/transactions
+// Currently using static data from @/data/transactions (DailyTransactions)
 
 export default function TimelineScreen() {
   const safeAreaInsets = useSafeAreaInsets();
@@ -109,7 +121,7 @@ export default function TimelineScreen() {
     >
       <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">€645</ThemedText>
+          <ThemedText type="subtitle">{formatCurrency(645)}</ThemedText>
           <View style={styles.timelineRow}>
             <ThemedText style={styles.centerText} themeColor="textSecondary">
               Cash Flow

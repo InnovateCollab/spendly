@@ -1,18 +1,14 @@
-import { SymbolViewProps } from 'expo-symbols';
-
 export interface Transaction {
   id: string;
   category: string;
-  icon: SymbolViewProps['name'];
   amount: number;
-  color?: string;
-  date?: Date;
+  date: Date;
   note?: string;
   labels?: string[];
 }
 
-export interface TransactionSectionData {
-  date: string;
-  amount: string;
+export interface DailyTransactions {
+  date: Date;
+  totalAmount: number;
   transactions: Transaction[];
 }

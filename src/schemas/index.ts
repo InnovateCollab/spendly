@@ -1,1 +1,1 @@
-export { type Transaction, type TransactionSectionData } from './transaction';
+export { type Transaction, type DailyTransactions } from './transaction';
