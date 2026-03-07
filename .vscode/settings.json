@@ -3,5 +3,8 @@
     "source.fixAll.eslint": "explicit"
   },
   "editor.formatOnSave": true,
-  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"]
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "chat.tools.terminal.autoApprove": {
+    "npm install": true
+  }
 }
