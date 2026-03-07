@@ -101,9 +101,9 @@ const LabelsSection = () => {
                 </Pressable>
             </View>
 
-            <View style={styles.labelsList}>
+            <View style={styles.labelsTable}>
                 {labelsData.map((label, idx) => (
-                    <ThemedView key={idx} type="backgroundElement" style={styles.labelItem}>
+                    <View key={idx} style={styles.labelRow}>
                         <View style={styles.labelContent}>
                             <ThemedText type="small" style={styles.labelName}>
                                 {label.name}
@@ -115,7 +115,7 @@ const LabelsSection = () => {
                         <ThemedText type="small" style={styles.labelAmount}>
                             {formatCurrency(Math.abs(label.amount))}
                         </ThemedText>
-                    </ThemedView>
+                    </View>
                 ))}
             </View>
         </ThemedView>
@@ -181,16 +181,16 @@ const CategoryPieChart = ({ selectedType }: { selectedType: 'income' | 'expense'
                     ))}
                 </View>
             </View>
-            <View style={styles.legendContainer}>
+            <View style={styles.categoriesTable}>
                 {categoryData.map((item, idx) => (
-                    <View key={idx} style={styles.legendItem}>
-                        <View style={[styles.legendColor, { backgroundColor: item.color }]} />
-                        <ThemedText type="small" style={styles.legendName}>{item.name}</ThemedText>
-                        <View style={styles.legendAmountWrapper}>
-                            <ThemedText type="small" themeColor="textSecondary">
-                                {formatCurrency(item.amount)} ({item.percentage}%)
-                            </ThemedText>
+                    <View key={idx} style={styles.categoryRow}>
+                        <View style={styles.categoryContent}>
+                            <View style={[styles.categoryColorDot, { backgroundColor: item.color }]} />
+                            <ThemedText type="small" style={styles.categoryName}>{item.name}</ThemedText>
                         </View>
+                        <ThemedText type="small" style={styles.categoryAmount}>
+                            {formatCurrency(item.amount)}
+                        </ThemedText>
                     </View>
                 ))}
             </View>
@@ -376,9 +376,9 @@ export default function OverviewScreen() {
                         </Pressable>
                     </View>
 
-                    <ThemedView type="backgroundElement" style={styles.pieChartCard}>
+                    <View style={styles.pieChartCard}>
                         <CategoryPieChart selectedType={selectedCategoryType} />
-                    </ThemedView>
+                    </View>
                 </ThemedView>
 
                 <LabelsSection />
@@ -485,22 +485,29 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         gap: Spacing.one,
     },
-    labelsList: {
-        gap: Spacing.two,
-    },
-    labelItem: {
-        padding: Spacing.two,
+    labelsTable: {
+        overflow: 'hidden',
         borderRadius: Spacing.two,
+        backgroundColor: '#ffffff',
+    },
+    labelRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingHorizontal: Spacing.four,
+        paddingVertical: Spacing.three,
+        minHeight: 56,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        gap: Spacing.two,
+        backgroundColor: '#ffffff',
     },
     labelContent: {
         flex: 1,
+        gap: Spacing.half,
     },
     labelName: {
         fontWeight: '600',
-        marginBottom: Spacing.half,
     },
     labelAmount: {
         fontWeight: '600',
@@ -514,7 +521,6 @@ const styles = StyleSheet.create({
     },
     pieChartWrapper: {
         width: '100%',
-        alignItems: 'center',
     },
     chartContainer: {
         alignItems: 'center',
@@ -540,28 +546,43 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 11,
     },
-    legendContainer: {
+    categoriesTable: {
+        overflow: 'hidden',
+        borderRadius: Spacing.two,
+        backgroundColor: '#ffffff',
+        marginTop: Spacing.two,
         width: '100%',
-        gap: Spacing.two,
     },
-    legendItem: {
+    categoryRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: Spacing.four,
+        paddingVertical: Spacing.three,
+        minHeight: 56,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        gap: Spacing.two,
+        backgroundColor: '#ffffff',
+    },
+    categoryContent: {
+        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         gap: Spacing.two,
-        paddingHorizontal: Spacing.one,
-        paddingVertical: Spacing.one,
     },
-    legendColor: {
+    categoryColorDot: {
         width: 12,
         height: 12,
         borderRadius: 2,
     },
-    legendName: {
-        flex: 1,
+    categoryName: {
+        fontWeight: '600',
     },
-    legendAmountWrapper: {
-        minWidth: 140,
-        alignItems: 'flex-end',
+    categoryAmount: {
+        fontWeight: '600',
+        minWidth: 80,
+        textAlign: 'right',
     },
     fab: {
         position: 'absolute',
