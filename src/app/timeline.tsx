@@ -11,7 +11,7 @@ import { getCategory } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
 import { type Transaction, type DailyTransactions } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
-import { formatCurrency, formatDate } from '@/utils/formatting';
+import { formatCurrency, formatDate, formatTransactionAmount } from '@/utils/formatting';
 
 // Components
 interface TransactionRowProps {
@@ -40,8 +40,14 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
           <ThemedText type="small" style={styles.rowDescription}>
             {transaction.category}
           </ThemedText>
-          <ThemedText type="small" style={styles.amountCell}>
-            {formatCurrency(transaction.amount)}
+          <ThemedText
+            type="small"
+            style={[
+              styles.amountCell,
+              transaction.amount >= 0 ? styles.amountIncome : styles.amountExpense
+            ]}
+          >
+            {formatTransactionAmount(transaction.amount)}
           </ThemedText>
         </View>
         {transaction.labels && transaction.labels.length > 0 && (
@@ -76,7 +82,7 @@ const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
     <ThemedView type="backgroundElement" style={styles.section}>
       <View style={styles.dateHeader}>
         <ThemedText type="smallBold">{formattedDate}</ThemedText>
-        <ThemedText type="smallBold">{formatCurrency(section.totalAmount)}</ThemedText>
+        <ThemedText type="smallBold">{formatTransactionAmount(section.totalAmount)}</ThemedText>
       </View>
       <View style={styles.table}>
         {section.transactions.map((tx, idx) => (
@@ -278,6 +284,12 @@ const styles = StyleSheet.create({
   amountCell: {
     textAlign: 'right',
     marginLeft: Spacing.two,
+  },
+  amountIncome: {
+    color: '#22c55e',
+  },
+  amountExpense: {
+    color: '#ef4444',
   },
   fab: {
     position: 'absolute',

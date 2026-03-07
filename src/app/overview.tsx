@@ -8,7 +8,7 @@ import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { formatCurrency } from '@/utils/formatting';
+import { formatCurrency, formatTransactionAmount } from '@/utils/formatting';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
 
 // Helper function to determine if category is income or expense
@@ -20,6 +20,7 @@ const isIncomeCategory = (category: string): boolean => {
 // Labels Section Component
 const LabelsSection = () => {
     const [selectedType, setSelectedType] = React.useState<'income' | 'expense'>('expense');
+    const [showAllLabels, setShowAllLabels] = React.useState(false);
 
     // Calculate label totals from transactions
     const labelMap = new Map<string, { amount: number; count: number }>();
@@ -51,6 +52,10 @@ const LabelsSection = () => {
         }))
         .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount));
 
+    // Determine which labels to display
+    const displayedLabels = showAllLabels ? labelsData : labelsData.slice(0, 5);
+    const hasMoreLabels = labelsData.length > 5;
+
     return (
         <ThemedView style={styles.labelsSection}>
             <ThemedText type="subtitle" style={styles.sectionTitleCenter}>
@@ -68,7 +73,10 @@ const LabelsSection = () => {
                 >
                     <ThemedView
                         type={selectedType === 'expense' ? 'backgroundSelected' : 'backgroundElement'}
-                        style={styles.labelTypeButtonContent}
+                        style={[
+                            styles.labelTypeButtonContent,
+                            selectedType === 'expense' && styles.labelTypeButtonContentActive
+                        ]}
                     >
                         <SymbolView
                             tintColor="#FF6B6B"
@@ -89,7 +97,10 @@ const LabelsSection = () => {
                 >
                     <ThemedView
                         type={selectedType === 'income' ? 'backgroundSelected' : 'backgroundElement'}
-                        style={styles.labelTypeButtonContent}
+                        style={[
+                            styles.labelTypeButtonContent,
+                            selectedType === 'income' && styles.labelTypeButtonContentActive
+                        ]}
                     >
                         <SymbolView
                             tintColor="#4ECDC4"
@@ -102,28 +113,53 @@ const LabelsSection = () => {
             </View>
 
             <View style={styles.labelsTable}>
-                {labelsData.map((label, idx) => (
+                {displayedLabels.map((label, idx) => (
                     <View key={idx} style={styles.labelRow}>
                         <View style={styles.labelContent}>
-                            <ThemedText type="small" style={styles.labelName}>
-                                {label.name}
-                            </ThemedText>
-                            <ThemedText type="small" themeColor="textSecondary">
-                                {label.count} transaction{label.count > 1 ? 's' : ''}
-                            </ThemedText>
+                            <View style={styles.labelHeaderRow}>
+                                <SymbolView
+                                    tintColor="#FBBF24"
+                                    name={{ ios: 'tag.fill', android: 'local_offer', web: 'local_offer' }}
+                                    size={16}
+                                />
+                                <View style={styles.labelTextContent}>
+                                    <ThemedText type="small" style={styles.labelName}>
+                                        {label.name}
+                                    </ThemedText>
+                                    <ThemedText type="small" themeColor="textSecondary">
+                                        {label.count} transaction{label.count > 1 ? 's' : ''}
+                                    </ThemedText>
+                                </View>
+                            </View>
                         </View>
-                        <ThemedText type="small" style={styles.labelAmount}>
-                            {formatCurrency(Math.abs(label.amount))}
+                        <ThemedText
+                            type="small"
+                            style={[
+                                styles.labelAmount,
+                                label.amount >= 0 ? styles.amountIncome : styles.amountExpense
+                            ]}
+                        >
+                            {formatTransactionAmount(label.amount)}
                         </ThemedText>
                     </View>
                 ))}
             </View>
+            {hasMoreLabels && (
+                <Pressable
+                    style={({ pressed }) => [styles.allLabelsButton, pressed && { opacity: 0.7 }]}
+                    onPress={() => setShowAllLabels(!showAllLabels)}
+                >
+                    <ThemedText type="small" style={styles.allLabelsButtonText}>
+                        {showAllLabels ? 'Show Less' : `All Labels (${labelsData.length})`}
+                    </ThemedText>
+                </Pressable>
+            )}
         </ThemedView>
     );
 };
 
 // Simple Pie Chart Component
-const CategoryPieChart = ({ selectedType }: { selectedType: 'income' | 'expense' }) => {
+const CategoryPieChart = ({ selectedType, showAllCategories, onToggleAllCategories }: { selectedType: 'income' | 'expense'; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
     // Calculate category totals from transactions
     const categoryMap = new Map<string, { amount: number; color: string }>();
     const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
@@ -152,12 +188,17 @@ const CategoryPieChart = ({ selectedType }: { selectedType: 'income' | 'expense'
             const absAmount = Math.abs(amount);
             return {
                 name,
-                amount: Math.round(absAmount * 100) / 100,
+                amount: Math.round(amount * 100) / 100, // Keep original sign
+                absAmount: Math.round(absAmount * 100) / 100,
                 percentage: totalAmount > 0 ? Math.round((absAmount / totalAmount) * 100) : 0,
                 color,
             };
         })
-        .sort((a, b) => b.amount - a.amount); // Sort by amount descending
+        .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)); // Sort by absolute amount descending
+
+    // Determine which categories to display
+    const displayedCategories = showAllCategories ? categoryData : categoryData.slice(0, 5);
+    const hasMoreCategories = categoryData.length > 5;
 
     return (
         <View style={styles.pieChartWrapper}>
@@ -182,18 +223,34 @@ const CategoryPieChart = ({ selectedType }: { selectedType: 'income' | 'expense'
                 </View>
             </View>
             <View style={styles.categoriesTable}>
-                {categoryData.map((item, idx) => (
+                {displayedCategories.map((item, idx) => (
                     <View key={idx} style={styles.categoryRow}>
                         <View style={styles.categoryContent}>
                             <View style={[styles.categoryColorDot, { backgroundColor: item.color }]} />
                             <ThemedText type="small" style={styles.categoryName}>{item.name}</ThemedText>
                         </View>
-                        <ThemedText type="small" style={styles.categoryAmount}>
-                            {formatCurrency(item.amount)}
+                        <ThemedText
+                            type="small"
+                            style={[
+                                styles.categoryAmount,
+                                item.amount >= 0 ? styles.amountIncome : styles.amountExpense
+                            ]}
+                        >
+                            {formatTransactionAmount(item.amount)}
                         </ThemedText>
                     </View>
                 ))}
             </View>
+            {hasMoreCategories && (
+                <Pressable
+                    style={({ pressed }) => [styles.allCategoriesButton, pressed && { opacity: 0.7 }]}
+                    onPress={onToggleAllCategories}
+                >
+                    <ThemedText type="small" style={styles.allCategoriesButtonText}>
+                        {showAllCategories ? 'Show Less' : `All Categories (${categoryData.length})`}
+                    </ThemedText>
+                </Pressable>
+            )}
         </View>
     );
 };
@@ -207,6 +264,7 @@ export default function OverviewScreen() {
     const theme = useTheme();
     const [selectedCategoryType, setSelectedCategoryType] = React.useState<'income' | 'expense'>('expense');
     const [selectedMonth, setSelectedMonth] = React.useState<string>('December 2025');
+    const [showAllCategories, setShowAllCategories] = React.useState(false);
 
     const months = [
         { label: 'September 2025', value: 'September 2025' },
@@ -220,13 +278,17 @@ export default function OverviewScreen() {
     // Calculate totals from transactions
     let totalIncome = 0;
     let totalExpenses = 0;
+    let categoryExpenseTotal = 0;
+    let categoryIncomeTotal = 0;
 
     TRANSACTION_SECTIONS.forEach(section => {
         section.transactions.forEach(tx => {
             if (tx.amount > 0) {
                 totalIncome += tx.amount;
+                categoryIncomeTotal += tx.amount;
             } else {
                 totalExpenses += Math.abs(tx.amount);
+                categoryExpenseTotal += Math.abs(tx.amount);
             }
         });
     });
@@ -295,34 +357,25 @@ export default function OverviewScreen() {
 
                 <ThemedView style={styles.statsWrapper}>
                     <ThemedView type="backgroundElement" style={styles.statCard}>
-                        <View style={styles.statIconContainer}>
-                            <SymbolView
-                                tintColor={theme.text}
-                                name={{ ios: 'arrow.up.circle.fill', android: 'trending_up', web: 'trending_up' }}
-                                size={16}
-                            />
-                        </View>
                         <View style={styles.statContent}>
+                            <ThemedText type="smallBold" style={styles.amountIncome}>{formatCurrency(totalIncome)}</ThemedText>
                             <ThemedText type="small" themeColor="textSecondary">
                                 Total Wealth
                             </ThemedText>
-                            <ThemedText type="smallBold">{formatCurrency(totalIncome)}</ThemedText>
                         </View>
                     </ThemedView>
 
-                    <ThemedView type="backgroundElement" style={styles.statCard}>
-                        <View style={styles.statIconContainer}>
-                            <SymbolView
-                                tintColor={theme.text}
-                                name={{ ios: 'arrow.down.circle.fill', android: 'trending_down', web: 'trending_down' }}
-                                size={16}
-                            />
-                        </View>
+                    <ThemedView type="backgroundElement" style={[styles.statCard, styles.statCardSelected]}>
                         <View style={styles.statContent}>
+                            <ThemedText
+                                type="smallBold"
+                                style={monthlyCashFlow >= 0 ? styles.amountIncome : styles.amountExpense}
+                            >
+                                {formatCurrency(monthlyCashFlow)}
+                            </ThemedText>
                             <ThemedText type="small" themeColor="textSecondary">
                                 Monthly Cash Flow
                             </ThemedText>
-                            <ThemedText type="smallBold">{formatCurrency(monthlyCashFlow)}</ThemedText>
                         </View>
                     </ThemedView>
                 </ThemedView>
@@ -343,14 +396,20 @@ export default function OverviewScreen() {
                         >
                             <ThemedView
                                 type={selectedCategoryType === 'expense' ? 'backgroundSelected' : 'backgroundElement'}
-                                style={styles.labelTypeButtonContent}
+                                style={[
+                                    styles.labelTypeButtonContent,
+                                    selectedCategoryType === 'expense' && styles.labelTypeButtonContentActive
+                                ]}
                             >
                                 <SymbolView
                                     tintColor="#FF6B6B"
                                     name={{ ios: 'arrow.up.circle.fill', android: 'trending_up', web: 'trending_up' }}
                                     size={18}
                                 />
-                                <ThemedText type="small">Expense</ThemedText>
+                                <View style={styles.categoryButtonTextContent}>
+                                    <ThemedText type="smallBold" style={styles.amountExpense}>{formatCurrency(categoryExpenseTotal)}</ThemedText>
+                                    <ThemedText type="small">Expense</ThemedText>
+                                </View>
                             </ThemedView>
                         </Pressable>
 
@@ -364,20 +423,30 @@ export default function OverviewScreen() {
                         >
                             <ThemedView
                                 type={selectedCategoryType === 'income' ? 'backgroundSelected' : 'backgroundElement'}
-                                style={styles.labelTypeButtonContent}
+                                style={[
+                                    styles.labelTypeButtonContent,
+                                    selectedCategoryType === 'income' && styles.labelTypeButtonContentActive
+                                ]}
                             >
                                 <SymbolView
                                     tintColor="#4ECDC4"
                                     name={{ ios: 'arrow.down.circle.fill', android: 'trending_down', web: 'trending_down' }}
                                     size={18}
                                 />
-                                <ThemedText type="small">Income</ThemedText>
+                                <View style={styles.categoryButtonTextContent}>
+                                    <ThemedText type="smallBold" style={styles.amountIncome}>{formatCurrency(categoryIncomeTotal)}</ThemedText>
+                                    <ThemedText type="small">Income</ThemedText>
+                                </View>
                             </ThemedView>
                         </Pressable>
                     </View>
 
                     <View style={styles.pieChartCard}>
-                        <CategoryPieChart selectedType={selectedCategoryType} />
+                        <CategoryPieChart
+                            selectedType={selectedCategoryType}
+                            showAllCategories={showAllCategories}
+                            onToggleAllCategories={() => setShowAllCategories(!showAllCategories)}
+                        />
                     </View>
                 </ThemedView>
 
@@ -436,9 +505,15 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: Spacing.two,
         borderRadius: Spacing.two,
-        flexDirection: 'row',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: Spacing.two,
+        justifyContent: 'center',
+        gap: Spacing.one,
+    },
+    statCardSelected: {
+        backgroundColor: '#ffffff',
+        borderWidth: 2,
+        borderColor: '#d0d0d0',
     },
     statIconContainer: {
         width: 32,
@@ -448,7 +523,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     statContent: {
-        flex: 1,
+        alignItems: 'center',
     },
     categoriesSection: {
         paddingHorizontal: Spacing.four,
@@ -468,7 +543,7 @@ const styles = StyleSheet.create({
     },
     labelTypeButtons: {
         flexDirection: 'row',
-        gap: Spacing.two,
+        gap: 0,
         paddingVertical: Spacing.two,
     },
     labelTypeButton: {
@@ -484,6 +559,18 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         gap: Spacing.one,
+        borderWidth: 2,
+        borderColor: '#d0d0d0',
+    },
+    labelTypeButtonContentActive: {
+        backgroundColor: '#ffffff',
+        borderColor: '#d0d0d0',
+        borderWidth: 2,
+    },
+    categoryButtonTextContent: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 0,
     },
     labelsTable: {
         overflow: 'hidden',
@@ -505,6 +592,16 @@ const styles = StyleSheet.create({
     labelContent: {
         flex: 1,
         gap: Spacing.half,
+    },
+    labelHeaderRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: Spacing.one,
+    },
+    labelTextContent: {
+        flexDirection: 'column',
+        gap: Spacing.half,
+        flex: 1,
     },
     labelName: {
         fontWeight: '600',
@@ -628,5 +725,37 @@ const styles = StyleSheet.create({
     },
     monthButtonTextActive: {
         fontWeight: '600',
+    },
+    amountIncome: {
+        color: '#22c55e',
+    },
+    amountExpense: {
+        color: '#ef4444',
+    },
+    allCategoriesButton: {
+        alignSelf: 'center',
+        marginTop: Spacing.three,
+        paddingHorizontal: Spacing.three,
+        paddingVertical: Spacing.two,
+        borderRadius: Spacing.two,
+        backgroundColor: '#f0f0f0',
+    },
+    allCategoriesButtonText: {
+        fontWeight: '600',
+        textAlign: 'center',
+        color: '#007AFF',
+    },
+    allLabelsButton: {
+        alignSelf: 'center',
+        marginTop: Spacing.three,
+        paddingHorizontal: Spacing.three,
+        paddingVertical: Spacing.two,
+        borderRadius: Spacing.two,
+        backgroundColor: '#f0f0f0',
+    },
+    allLabelsButtonText: {
+        fontWeight: '600',
+        textAlign: 'center',
+        color: '#007AFF',
     },
 });
