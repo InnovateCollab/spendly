@@ -57,6 +57,26 @@ export const CATEGORIES: Record<string, Category> = {
         icon: { ios: 'bus.fill', android: 'directions_bus', web: 'directions_bus' },
         color: '#06b6d4',
     },
+    shopping: {
+        name: 'Shopping',
+        icon: { ios: 'bag.fill', android: 'shopping_bag', web: 'shopping_bag' },
+        color: '#ec4899',
+    },
+    health: {
+        name: 'Health',
+        icon: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
+        color: '#f43f5e',
+    },
+    salary: {
+        name: 'Salary',
+        icon: { ios: 'banknote.fill', android: 'attach_money', web: 'attach_money' },
+        color: '#10b981',
+    },
+    freelance: {
+        name: 'Freelance',
+        icon: { ios: 'briefcase.fill', android: 'work', web: 'work' },
+        color: '#3b82f6',
+    },
 };
 
 export function getCategory(categoryName: string): Category | undefined {
