@@ -16,12 +16,33 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+   In the output, you'll find options to open the app in a
+   - [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+   - [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+   - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+   - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ### iOS Simulator Setup (Optional)
+
+   To run the app on a specific iOS simulator device:
+   1. List all available simulator devices:
+
+      ```bash
+      xcrun simctl list devices available
+      ```
+
+      This will show available devices with their UUIDs.
+
+   2. Boot a specific simulator (replace `UUID` with the actual device UUID):
+
+      ```bash
+      xcrun simctl boot UUID
+      ```
+
+   3. Start the app on iOS:
+      ```bash
+      npx expo start --ios
+      ```
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
