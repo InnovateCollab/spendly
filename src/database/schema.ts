@@ -5,7 +5,7 @@
 
 export const DATABASE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY NOT NULL,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     icon_ios TEXT NOT NULL,
     icon_android TEXT NOT NULL,

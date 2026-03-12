@@ -6,6 +6,7 @@
 import * as SQLite from 'expo-sqlite';
 import { DATABASE_SCHEMA } from './schema';
 import { CATEGORIES } from '@/constants/categories';
+import { TRANSACTION_SECTIONS } from '@/data/transactions';
 import { Transaction } from '@/schemas/transaction';
 
 const DATABASE_NAME = 'spendly.db';
@@ -27,8 +28,11 @@ export class Database {
             await this.createTables();
             console.log('✓ Database tables created');
 
-            await this.seedCategories();
+            const categoryIdMap = await this.seedCategories();
             console.log('✓ Categories seeded');
+
+            await this.seedTransactions(categoryIdMap);
+            console.log('✓ Transactions seeded');
 
             this.isInitialized = true;
             console.log('✓ Database initialized successfully');
@@ -50,16 +54,17 @@ export class Database {
         }
     }
 
-    private async seedCategories() {
+    private async seedCategories(): Promise<Map<string, number>> {
         if (!this.db) throw new Error('Database not connected');
+
+        const categoryIdMap = new Map<string, number>();
 
         for (const category of Object.values(CATEGORIES)) {
             try {
-                await this.db.runAsync(
-                    `INSERT OR IGNORE INTO categories (id, name, icon_ios, icon_android, icon_web, color, type)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                const result = await this.db.runAsync(
+                    `INSERT OR IGNORE INTO categories (name, icon_ios, icon_android, icon_web, color, type)
+           VALUES (?, ?, ?, ?, ?, ?)`,
                     [
-                        category.id,
                         category.name,
                         typeof category.icon === 'object' ? (category.icon.ios || '') : '',
                         typeof category.icon === 'object' ? (category.icon.android || '') : '',
@@ -68,8 +73,45 @@ export class Database {
                         category.type,
                     ]
                 );
+                if (result.lastInsertRowId) {
+                    categoryIdMap.set(category.name, Number(result.lastInsertRowId));
+                }
             } catch (error) {
                 console.error(`Failed to seed category ${category.name}:`, error);
+            }
+        }
+
+        return categoryIdMap;
+    }
+
+    private async seedTransactions(categoryIdMap: Map<string, number>) {
+        if (!this.db) throw new Error('Database not connected');
+
+        for (const dailyTransactions of TRANSACTION_SECTIONS) {
+            for (const transaction of dailyTransactions.transactions) {
+                try {
+                    const categoryId = categoryIdMap.get(transaction.category.name);
+                    if (!categoryId) {
+                        console.warn(`Category not found for transaction: ${transaction.category.name}`);
+                        continue;
+                    }
+
+                    await this.db.runAsync(
+                        `INSERT OR IGNORE INTO transactions (category_id, amount, date, note, labels)
+           VALUES (?, ?, ?, ?, ?)`,
+                        [
+                            categoryId,
+                            transaction.amount,
+                            transaction.date instanceof Date
+                                ? transaction.date.toISOString()
+                                : transaction.date,
+                            transaction.note || null,
+                            transaction.labels ? JSON.stringify(transaction.labels) : null,
+                        ]
+                    );
+                } catch (error) {
+                    console.error(`Failed to seed transaction:`, error);
+                }
             }
         }
     }
