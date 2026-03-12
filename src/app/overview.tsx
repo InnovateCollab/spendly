@@ -8,18 +8,18 @@ import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Category, CategoryType } from '@/schemas';
 import { formatCurrency, formatTransactionAmount } from '@/utils/formatting';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
 
 // Helper function to determine if category is income or expense
-const isIncomeCategory = (category: string): boolean => {
-    const incomeCategories = ['Salary', 'Freelance', 'Bonus', 'Investment', 'Refund'];
-    return incomeCategories.includes(category);
+const isIncomeCategory = (category: Category): boolean => {
+    return category.type === 'income';
 };
 
 // Labels Section Component
 const LabelsSection = () => {
-    const [selectedType, setSelectedType] = React.useState<'income' | 'expense'>('expense');
+    const [selectedType, setSelectedType] = React.useState<CategoryType>('expense');
     const [showAllLabels, setShowAllLabels] = React.useState(false);
 
     // Calculate label totals from transactions
@@ -120,7 +120,7 @@ const LabelsSection = () => {
                                 <SymbolView
                                     tintColor="#FBBF24"
                                     name={{ ios: 'tag.fill', android: 'local_offer', web: 'local_offer' }}
-                                    size={16}
+                                    size={24}
                                 />
                                 <View style={styles.labelTextContent}>
                                     <ThemedText type="small" style={styles.labelName}>
@@ -159,7 +159,7 @@ const LabelsSection = () => {
 };
 
 // Simple Pie Chart Component
-const CategoryPieChart = ({ selectedType, showAllCategories, onToggleAllCategories }: { selectedType: 'income' | 'expense'; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
+const CategoryPieChart = ({ selectedType, showAllCategories, onToggleAllCategories }: { selectedType: CategoryType; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
     // Calculate category totals from transactions
     const categoryMap = new Map<string, { amount: number; color: string }>();
     const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
@@ -169,11 +169,11 @@ const CategoryPieChart = ({ selectedType, showAllCategories, onToggleAllCategori
         section.transactions.forEach(tx => {
             const isIncome = isIncomeCategory(tx.category);
             if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
-                if (!categoryMap.has(tx.category)) {
-                    categoryMap.set(tx.category, { amount: 0, color: colors[colorIndex % colors.length] });
+                if (!categoryMap.has(tx.category.name)) {
+                    categoryMap.set(tx.category.name, { amount: 0, color: colors[colorIndex % colors.length] });
                     colorIndex++;
                 }
-                const category = categoryMap.get(tx.category)!;
+                const category = categoryMap.get(tx.category.name)!;
                 category.amount += tx.amount;
             }
         });
@@ -262,7 +262,7 @@ export default function OverviewScreen() {
         bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
     };
     const theme = useTheme();
-    const [selectedCategoryType, setSelectedCategoryType] = React.useState<'income' | 'expense'>('expense');
+    const [selectedCategoryType, setSelectedCategoryType] = React.useState<CategoryType>('expense');
     const [selectedMonth, setSelectedMonth] = React.useState<string>('December 2025');
     const [showAllCategories, setShowAllCategories] = React.useState(false);
 

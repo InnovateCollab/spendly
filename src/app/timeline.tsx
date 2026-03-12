@@ -7,23 +7,22 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { getCategory } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
-import { type Transaction, type DailyTransactions } from '@/schemas/transaction';
+import { type TransactionUI, type DailyTransactions } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
 import { formatCurrency, formatDate, formatTransactionAmount } from '@/utils/formatting';
 
 // Components
 interface TransactionRowProps {
-  transaction: Transaction;
+  transaction: TransactionUI;
 }
 
 const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
   const theme = useTheme();
-  const category = getCategory(transaction.category);
+  const category = transaction.category;
 
   if (!category) {
-    console.warn(`Category not found: ${transaction.category}`);
+    console.warn(`Category not found: ${transaction.category?.name || transaction.category}`);
     return null;
   }
 
@@ -31,17 +30,17 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
     <View style={styles.tableRow}>
       <SymbolView
         name={category.icon}
-        size={16}
+        size={28}
         tintColor={category.color || theme.textSecondary}
         style={styles.rowIcon}
       />
       <View style={styles.rowContent}>
         <View style={styles.rowMainLine}>
-          <ThemedText type="small" style={styles.rowDescription}>
-            {transaction.category}
+          <ThemedText type="default" style={styles.rowDescription}>
+            {category.name}
           </ThemedText>
           <ThemedText
-            type="small"
+            type="default"
             style={[
               styles.amountCell,
               transaction.amount >= 0 ? styles.amountIncome : styles.amountExpense
@@ -54,7 +53,7 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
           <View style={styles.labelsBadge}>
             {transaction.labels.map((lbl, idx) => (
               <View key={idx} style={styles.labelBadge}>
-                <ThemedText style={styles.rowLabel}>
+                <ThemedText type="small" style={styles.rowLabel}>
                   {lbl}
                 </ThemedText>
               </View>
@@ -81,8 +80,8 @@ const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
   return (
     <ThemedView type="backgroundElement" style={styles.section}>
       <View style={styles.dateHeader}>
-        <ThemedText type="smallBold">{formattedDate}</ThemedText>
-        <ThemedText type="smallBold">{formatTransactionAmount(section.totalAmount)}</ThemedText>
+        <ThemedText type="default">{formattedDate}</ThemedText>
+        <ThemedText type="default">{formatTransactionAmount(section.totalAmount)}</ThemedText>
       </View>
       <View style={styles.table}>
         {section.transactions.map((tx, idx) => (
@@ -140,7 +139,7 @@ export default function TimelineScreen() {
             <SymbolView
               tintColor={theme.text}
               name={{ ios: 'chart.pie.fill', android: 'pie_chart', web: 'pie_chart' }}
-              size={20}
+              size={28}
             />
             <ThemedText type="small" style={styles.buttonText}>
               Spending Overview
@@ -280,6 +279,8 @@ const styles = StyleSheet.create({
   rowNote: {
     fontSize: 11,
     opacity: 0.7,
+    paddingTop: Spacing.one,
+    paddingBottom: Spacing.one,
   },
   amountCell: {
     textAlign: 'right',

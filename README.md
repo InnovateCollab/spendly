@@ -46,6 +46,51 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
+## Database Testing & Introspection
+
+### Test Database on iOS Simulator
+
+The database is automatically initialized and tested when running on iOS. You'll see logs in the console showing:
+
+- Tables created ✓
+- Categories seeded ✓
+- Test transactions inserted ✓
+
+```bash
+npx expo start --ios
+```
+
+Then check the console output for database test results.
+
+### Access Database via Command Line (macOS)
+
+Inspect the actual SQLite database file directly:
+
+1. Find your iOS simulator database:
+
+   ```bash
+   find ~/Library/Developer/CoreSimulator/Devices -name "spendly.db" -type f
+   ```
+
+2. Open it with sqlite3 (pre-installed on macOS):
+
+   ```bash
+   sqlite3 "/path/to/spendly.db"
+   ```
+
+3. Inside sqlite3, run queries:
+   ```sql
+   .tables                    -- List tables
+   .schema                    -- View table structure
+   SELECT * FROM transactions; -- View all transactions
+   SELECT * FROM categories;   -- View all categories
+   SELECT COUNT(*) FROM transactions; -- Count records
+   ```
+
+### Note on Web Support
+
+SQLite database functionality only works on native platforms (iOS/Android). The web version uses stub implementations and displays appropriate messages. For database testing, use iOS Simulator or Android Emulator.
+
 ## Get a fresh project
 
 When you're ready, run:
