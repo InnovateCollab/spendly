@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -7,7 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { database } from '@/database';
 import { type TransactionUI, type DailyTransactions } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
 import { formatCurrency, formatDate, formatTransactionAmount } from '@/utils/formatting';
@@ -92,11 +92,61 @@ const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
   );
 };
 
-// Data - will be replaced with a version that returns this structure [ OLD DATA MOVED TO @/data/transactions
 // Data - will be replaced with a version that gets data from database
-// Currently using static data from @/data/transactions (DailyTransactions)
+// Currently fetching from SQLite database
 
 export default function TimelineScreen() {
+  const [transactions, setTransactions] = useState<DailyTransactions[]>([]);
+  const [totalCashFlow, setTotalCashFlow] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Wait for database to initialize before loading transactions
+    const timer = setTimeout(() => {
+      loadTransactions();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const loadTransactions = async () => {
+    try {
+      const dbTransactions = await database.getTransactionsWithCategories();
+      const grouped = groupTransactionsByDate(dbTransactions);
+      setTransactions(grouped);
+
+      const total = dbTransactions.reduce((sum, t) => sum + t.amount, 0);
+      setTotalCashFlow(total);
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
+      // Retry if database not ready
+      if (error instanceof Error && error.message.includes('not connected')) {
+        setTimeout(loadTransactions, 1000);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const groupTransactionsByDate = (txs: TransactionUI[]): DailyTransactions[] => {
+    const groups = new Map<string, TransactionUI[]>();
+
+    for (const tx of txs) {
+      const dateKey = tx.date.toISOString().split('T')[0];
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      groups.get(dateKey)!.push(tx);
+    }
+
+    return Array.from(groups.entries())
+      .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+      .map(([dateStr, txs]) => ({
+        date: new Date(dateStr),
+        totalAmount: txs.reduce((sum, t) => sum + t.amount, 0),
+        transactions: txs,
+      }));
+  };
+
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
     ...safeAreaInsets,
@@ -126,7 +176,7 @@ export default function TimelineScreen() {
     >
       <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">{formatCurrency(645)}</ThemedText>
+          <ThemedText type="subtitle">{formatCurrency(totalCashFlow)}</ThemedText>
           <View style={styles.timelineRow}>
             <ThemedText style={styles.centerText} themeColor="textSecondary">
               Cash Flow
@@ -148,7 +198,7 @@ export default function TimelineScreen() {
         </Pressable>
 
         <ThemedView style={styles.sectionsWrapper}>
-          {TRANSACTION_SECTIONS.map((section, idx) => (
+          {transactions.map((section, idx) => (
             <TransactionSection key={idx} section={section} />
           ))}
         </ThemedView>

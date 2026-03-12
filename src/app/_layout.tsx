@@ -14,7 +14,7 @@ export default function TabLayout() {
   // Check console for database initialization logs
   // To inspect data directly, use sqlite3 CLI on iOS simulator database
   useEffect(() => {
-    database.init();
+    database.init().catch(error => console.error('Database init failed:', error));
   }, []);
 
   return (

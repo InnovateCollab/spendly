@@ -7,7 +7,8 @@ import * as SQLite from 'expo-sqlite';
 import { DATABASE_SCHEMA } from './schema';
 import { CATEGORIES } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
-import { Transaction } from '@/schemas/transaction';
+import { Transaction, TransactionUI } from '@/schemas/transaction';
+import { Category } from '@/schemas/category';
 
 const DATABASE_NAME = 'spendly.db';
 
@@ -73,8 +74,13 @@ export class Database {
                         category.type,
                     ]
                 );
-                if (result.lastInsertRowId) {
-                    categoryIdMap.set(category.name, Number(result.lastInsertRowId));
+                // Get the actual ID from database
+                const row = await this.db.getFirstAsync<{ id: number }>(
+                    `SELECT id FROM categories WHERE name = ?`,
+                    [category.name]
+                );
+                if (row) {
+                    categoryIdMap.set(category.name, row.id);
                 }
             } catch (error) {
                 console.error(`Failed to seed category ${category.name}:`, error);
@@ -297,6 +303,56 @@ export class Database {
     }
 
     /**
+     * Get all transactions with category data (for UI display)
+     */
+    async getTransactionsWithCategories(): Promise<TransactionUI[]> {
+        if (!this.db) throw new Error('Database not connected');
+
+        const rows = await this.db.getAllAsync<any>(
+            `SELECT * FROM transactions ORDER BY date DESC`
+        );
+
+        return rows.map(row => this.deserializeTransactionUI(row));
+    }
+
+    /**
+     * Get transactions for a specific date with category data (for UI display)
+     */
+    async getTransactionsByDateWithCategories(date: Date): Promise<TransactionUI[]> {
+        if (!this.db) throw new Error('Database not connected');
+
+        const dateStr = date.toISOString().split('T')[0];
+
+        const rows = await this.db.getAllAsync<any>(
+            `SELECT * FROM transactions 
+       WHERE DATE(date) = DATE(?) 
+       ORDER BY date DESC`,
+            [dateStr]
+        );
+
+        return rows.map(row => this.deserializeTransactionUI(row));
+    }
+
+    /**
+     * Get transactions for a date range with category data (for UI display)
+     */
+    async getTransactionsByDateRangeWithCategories(
+        startDate: Date,
+        endDate: Date
+    ): Promise<TransactionUI[]> {
+        if (!this.db) throw new Error('Database not connected');
+
+        const rows = await this.db.getAllAsync<any>(
+            `SELECT * FROM transactions 
+       WHERE date >= ? AND date <= ? 
+       ORDER BY date DESC`,
+            [startDate.toISOString(), endDate.toISOString()]
+        );
+
+        return rows.map(row => this.deserializeTransactionUI(row));
+    }
+
+    /**
      * Close database connection
      */
     async close() {
@@ -306,6 +362,37 @@ export class Database {
             this.isInitialized = false;
             console.log('✓ Database connection closed');
         }
+    }
+
+    /**
+     * Convert Transaction to TransactionUI with category object
+     */
+    private deserializeTransactionUI(row: any): TransactionUI {
+        const transaction = this.deserializeTransaction(row);
+
+        // Find the category object from CATEGORIES map
+        const categoryKey = Object.keys(CATEGORIES).find(
+            k => CATEGORIES[k as keyof typeof CATEGORIES].id === transaction.categoryId
+        ) as keyof typeof CATEGORIES;
+
+        const category: Category = categoryKey
+            ? CATEGORIES[categoryKey]
+            : {
+                id: transaction.categoryId,
+                name: 'Unknown',
+                color: '#666666',
+                type: 'expense' as const,
+                icon: { ios: 'questionmark.square', android: 'help', web: 'help' }
+            };
+
+        return {
+            id: transaction.id,
+            amount: transaction.amount,
+            date: transaction.date,
+            note: transaction.note,
+            labels: transaction.labels,
+            category
+        };
     }
 
     private deserializeTransaction(row: any): Transaction {
