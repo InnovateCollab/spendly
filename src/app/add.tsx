@@ -104,12 +104,12 @@ export default function AddScreen() {
                                 ) : (
                                     <>
                                         <SymbolView
-                                            name={{ ios: 'dollarsign.circle.fill', android: 'attach_money', web: 'attach_money' }}
+                                            name={{ ios: 'square.grid.2x2', android: 'dashboard', web: 'dashboard' }}
                                             size={32}
                                             tintColor="#22c55e"
                                         />
                                         <ThemedText type="small" style={styles.categoryPlaceholder}>
-                                            Select
+                                            Select Category
                                         </ThemedText>
                                     </>
                                 )}

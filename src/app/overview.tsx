@@ -161,7 +161,7 @@ const LabelsSection = ({ transactions }: { transactions: TransactionUI[] }) => {
 // Bar Chart Component
 const CategoryBarChart = ({ transactions, selectedType, showAllCategories, onToggleAllCategories }: { transactions: TransactionUI[]; selectedType: CategoryType; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
     // Calculate category totals from transactions
-    const categoryMap = new Map<string, { amount: number; color: string }>();
+    const categoryMap = new Map<string, { amount: number; icon: any; color: string }>();
     const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
     let colorIndex = 0;
 
@@ -169,7 +169,11 @@ const CategoryBarChart = ({ transactions, selectedType, showAllCategories, onTog
         const isIncome = isIncomeCategory(tx.category);
         if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
             if (!categoryMap.has(tx.category.name)) {
-                categoryMap.set(tx.category.name, { amount: 0, color: colors[colorIndex % colors.length] });
+                categoryMap.set(tx.category.name, {
+                    amount: 0,
+                    icon: tx.category.icon,
+                    color: colors[colorIndex % colors.length]
+                });
                 colorIndex++;
             }
             const category = categoryMap.get(tx.category.name)!;
@@ -182,13 +186,14 @@ const CategoryBarChart = ({ transactions, selectedType, showAllCategories, onTog
     const totalAmount = categoryValues.reduce((sum, val) => sum + val, 0);
 
     const categoryData = Array.from(categoryMap.entries())
-        .map(([name, { amount, color }]) => {
+        .map(([name, { amount, icon, color }]) => {
             const absAmount = Math.abs(amount);
             return {
                 name,
                 amount: Math.round(amount * 100) / 100, // Keep original sign
                 absAmount: Math.round(absAmount * 100) / 100,
                 percentage: totalAmount > 0 ? Math.round((absAmount / totalAmount) * 100) : 0,
+                icon,
                 color,
             };
         })
@@ -224,7 +229,11 @@ const CategoryBarChart = ({ transactions, selectedType, showAllCategories, onTog
                 {displayedCategories.map((item, idx) => (
                     <View key={idx} style={styles.categoryRow}>
                         <View style={styles.categoryContent}>
-                            <View style={[styles.categoryColorDot, { backgroundColor: item.color }]} />
+                            <SymbolView
+                                name={item.icon}
+                                size={24}
+                                tintColor={item.color}
+                            />
                             <ThemedText type="small" style={styles.categoryName}>{item.name}</ThemedText>
                         </View>
                         <ThemedText
@@ -292,7 +301,7 @@ export default function OverviewScreen() {
                     const dbTransactions = await database.getTransactionsWithCategories();
                     setTransactions(dbTransactions);
                 } catch (error) {
-                    console.error('Failed to load transactions:', error);
+                    console.log('Failed to load transactions:', error);
                     // Retry if database not ready
                     if (error instanceof Error && error.message.includes('not connected')) {
                         setTimeout(async () => {

@@ -131,7 +131,7 @@ export default function TimelineScreen() {
       setTotalCashFlow(total);
       setLoading(false);
     } catch (error) {
-      console.error('Failed to load transactions:', error);
+      console.log('Failed to load transactions:', error);
       setLoading(false);
       // Retry if database not ready
       if (error instanceof Error && error.message.includes('not connected')) {
