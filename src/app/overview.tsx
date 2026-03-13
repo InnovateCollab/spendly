@@ -488,14 +488,6 @@ export default function OverviewScreen() {
 
                 {Platform.OS === 'web' && <WebBadge />}
             </ThemedView>
-
-            <Pressable style={styles.fab} onPress={() => { /* TODO: handle add action */ }}>
-                <SymbolView
-                    name={{ ios: 'plus', android: 'add', web: 'add' }}
-                    size={28}
-                    tintColor="#fff"
-                />
-            </Pressable>
         </ScrollView>
     );
 }
@@ -714,22 +706,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         minWidth: 80,
         textAlign: 'right',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: Spacing.four,
-        right: Spacing.four,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: '#007AFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
     },
     monthList: {
         gap: Spacing.two,

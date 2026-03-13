@@ -81,15 +81,15 @@ x
 
 3. Inside sqlite3, run queries:
    ```sql
-   .tables                    -- List tables
-   .schema                    -- View table structure
-   .mode column               -- Pretty output format
-   .headers on                -- Pretty output format
-   SELECT * FROM categories;   -- View all categories
-   SELECT * FROM transactions; -- View all transactions
-   SELECT COUNT(*) FROM transactions; -- Count records
-   DROP TABLE IF EXISTS transactions; -- Drop tables
-   DROP TABLE IF EXISTS categories;   -- Drop tables
+   .tables                             -- List tables
+   .schema                             -- View table structure
+   .mode column                        -- Pretty output format
+   .headers on                         -- Pretty output format
+   SELECT * FROM categories;           -- View all categories
+   SELECT * FROM transactions;         -- View all transactions
+   SELECT COUNT(*) FROM transactions;  -- Count records
+   DROP TABLE IF EXISTS transactions;  -- Drop tables
+   DROP TABLE IF EXISTS categories;    -- Drop tables
    .exit
    ```
 

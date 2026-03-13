@@ -205,14 +205,6 @@ export default function TimelineScreen() {
 
         {Platform.OS === 'web' && <WebBadge />}
       </ThemedView>
-
-      <Pressable style={styles.fab} onPress={() => { /* TODO: handle add action */ }}>
-        <SymbolView
-          name={{ ios: 'plus', android: 'add', web: 'add' }}
-          size={28}
-          tintColor="#fff"
-        />
-      </Pressable>
     </ScrollView>
   );
 }
