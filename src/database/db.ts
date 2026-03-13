@@ -15,13 +15,27 @@ const DATABASE_NAME = 'spendly.db';
 export class Database {
     private db: SQLite.SQLiteDatabase | null = null;
     private isInitialized = false;
+    private initPromise: Promise<void> | null = null;
 
     async init() {
+        // If already initialized, return immediately
         if (this.isInitialized) {
             console.log('Database already initialized');
             return;
         }
 
+        // If initialization is in progress, wait for it to complete
+        if (this.initPromise) {
+            console.log('Database initialization in progress, waiting...');
+            return this.initPromise;
+        }
+
+        // Start initialization and store the promise to prevent parallel inits
+        this.initPromise = this._performInit();
+        await this.initPromise;
+    }
+
+    private async _performInit() {
         try {
             this.db = await SQLite.openDatabaseAsync(DATABASE_NAME);
             console.log('✓ Database connection opened');
@@ -39,6 +53,7 @@ export class Database {
             console.log('✓ Database initialized successfully');
         } catch (error) {
             console.error('✗ Database initialization failed:', error);
+            this.initPromise = null; // Reset on error so it can be retried
             throw error;
         }
     }

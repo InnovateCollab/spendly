@@ -1,7 +1,8 @@
 import { SymbolView } from 'expo-symbols';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -100,34 +101,7 @@ export default function TimelineScreen() {
   const [totalCashFlow, setTotalCashFlow] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Wait for database to initialize before loading transactions
-    const timer = setTimeout(() => {
-      loadTransactions();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const loadTransactions = async () => {
-    try {
-      const dbTransactions = await database.getTransactionsWithCategories();
-      const grouped = groupTransactionsByDate(dbTransactions);
-      setTransactions(grouped);
-
-      const total = dbTransactions.reduce((sum, t) => sum + t.amount, 0);
-      setTotalCashFlow(total);
-    } catch (error) {
-      console.error('Failed to load transactions:', error);
-      // Retry if database not ready
-      if (error instanceof Error && error.message.includes('not connected')) {
-        setTimeout(loadTransactions, 1000);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const groupTransactionsByDate = (txs: TransactionUI[]): DailyTransactions[] => {
+  const groupTransactionsByDate = useCallback((txs: TransactionUI[]): DailyTransactions[] => {
     const groups = new Map<string, TransactionUI[]>();
 
     for (const tx of txs) {
@@ -145,7 +119,43 @@ export default function TimelineScreen() {
         totalAmount: txs.reduce((sum, t) => sum + t.amount, 0),
         transactions: txs,
       }));
-  };
+  }, []);
+
+  const loadTransactions = useCallback(async () => {
+    try {
+      const dbTransactions = await database.getTransactionsWithCategories();
+      const grouped = groupTransactionsByDate(dbTransactions);
+      setTransactions(grouped);
+
+      const total = dbTransactions.reduce((sum, t) => sum + t.amount, 0);
+      setTotalCashFlow(total);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
+      setLoading(false);
+      // Retry if database not ready
+      if (error instanceof Error && error.message.includes('not connected')) {
+        setTimeout(() => loadTransactions(), 1000);
+      }
+    }
+  }, [groupTransactionsByDate]);
+
+  // Initial load on component mount
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  // Reload data when screen comes into focus (from adding a transaction)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Timeline screen focused - reloading transactions');
+      setLoading(true);
+      loadTransactions();
+      return () => {
+        // Cleanup if needed
+      };
+    }, [loadTransactions])
+  );
 
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
