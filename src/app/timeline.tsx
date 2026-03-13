@@ -1,12 +1,13 @@
 import { SymbolView } from 'expo-symbols';
 import React, { useEffect, useState, useCallback } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
+import { AddTransactionModal } from '@/components/add-transaction-modal';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { database } from '@/database';
 import { type TransactionUI, type DailyTransactions } from '@/schemas/transaction';
@@ -16,9 +17,10 @@ import { formatCurrency, formatDate, formatTransactionAmount } from '@/utils/for
 // Components
 interface TransactionRowProps {
   transaction: TransactionUI;
+  onEdit: (transaction: TransactionUI) => void;
 }
 
-const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
+const TransactionRow: React.FC<TransactionRowProps> = ({ transaction, onEdit }) => {
   const theme = useTheme();
   const category = transaction.category;
 
@@ -28,7 +30,10 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
   }
 
   return (
-    <View style={styles.tableRow}>
+    <Pressable
+      style={({ pressed }) => [styles.tableRow, pressed && { opacity: 0.7 }]}
+      onPress={() => onEdit(transaction)}
+    >
       <SymbolView
         name={category.icon}
         size={28}
@@ -67,15 +72,16 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
           </ThemedText>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 };
 
 interface TransactionSectionProps {
   section: DailyTransactions;
+  onEdit: (transaction: TransactionUI) => void;
 }
 
-const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
+const TransactionSection: React.FC<TransactionSectionProps> = ({ section, onEdit }) => {
   const formattedDate = formatDate(section.date);
 
   return (
@@ -86,7 +92,7 @@ const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
       </View>
       <View style={styles.table}>
         {section.transactions.map((tx, idx) => (
-          <TransactionRow key={idx} transaction={tx} />
+          <TransactionRow key={idx} transaction={tx} onEdit={onEdit} />
         ))}
       </View>
     </ThemedView>
@@ -100,6 +106,23 @@ export default function TimelineScreen() {
   const [transactions, setTransactions] = useState<DailyTransactions[]>([]);
   const [totalCashFlow, setTotalCashFlow] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionUI | undefined>(undefined);
+
+  const handleEditTransaction = (transaction: TransactionUI) => {
+    setEditingTransaction(transaction);
+    setIsModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+    setEditingTransaction(undefined);
+  };
+
+  const handleTransactionSuccess = () => {
+    setLoading(true);
+    loadTransactions();
+  };
 
   const groupTransactionsByDate = useCallback((txs: TransactionUI[]): DailyTransactions[] => {
     const groups = new Map<string, TransactionUI[]>();
@@ -179,30 +202,39 @@ export default function TimelineScreen() {
 
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
-    >
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">{formatCurrency(totalCashFlow)}</ThemedText>
-          <View style={styles.timelineRow}>
-            <ThemedText style={styles.centerText} themeColor="textSecondary">
-              Cash Flow
-            </ThemedText>
-          </View>
-        </ThemedView>
+    <>
+      <ScrollView
+        style={[styles.scrollView, { backgroundColor: theme.background }]}
+        contentInset={insets}
+        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+      >
+        <ThemedView style={styles.container}>
+          <ThemedView style={styles.titleContainer}>
+            <ThemedText type="subtitle">{formatCurrency(totalCashFlow)}</ThemedText>
+            <View style={styles.timelineRow}>
+              <ThemedText style={styles.centerText} themeColor="textSecondary">
+                Cash Flow
+              </ThemedText>
+            </View>
+          </ThemedView>
 
-        <ThemedView style={styles.sectionsWrapper}>
-          {transactions.map((section, idx) => (
-            <TransactionSection key={idx} section={section} />
-          ))}
-        </ThemedView>
+          <ThemedView style={styles.sectionsWrapper}>
+            {transactions.map((section, idx) => (
+              <TransactionSection key={idx} section={section} onEdit={handleEditTransaction} />
+            ))}
+          </ThemedView>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+          {Platform.OS === 'web' && <WebBadge />}
+        </ThemedView>
+      </ScrollView>
+
+      <AddTransactionModal
+        visible={isModalVisible}
+        onClose={handleCloseModal}
+        onSuccess={handleTransactionSuccess}
+        editTransaction={editingTransaction}
+      />
+    </>
   );
 }
 
