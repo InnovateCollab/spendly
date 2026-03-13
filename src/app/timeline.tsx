@@ -1,29 +1,28 @@
 import { SymbolView } from 'expo-symbols';
-import React from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { getCategory } from '@/constants/categories';
-import { TRANSACTION_SECTIONS } from '@/data/transactions';
-import { type Transaction, type DailyTransactions } from '@/schemas/transaction';
+import { database } from '@/database';
+import { type TransactionUI, type DailyTransactions } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
 import { formatCurrency, formatDate, formatTransactionAmount } from '@/utils/formatting';
 
 // Components
 interface TransactionRowProps {
-  transaction: Transaction;
+  transaction: TransactionUI;
 }
 
 const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
   const theme = useTheme();
-  const category = getCategory(transaction.category);
+  const category = transaction.category;
 
   if (!category) {
-    console.warn(`Category not found: ${transaction.category}`);
+    console.warn(`Category not found: ${transaction.category?.name || transaction.category}`);
     return null;
   }
 
@@ -31,17 +30,17 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
     <View style={styles.tableRow}>
       <SymbolView
         name={category.icon}
-        size={16}
+        size={28}
         tintColor={category.color || theme.textSecondary}
         style={styles.rowIcon}
       />
       <View style={styles.rowContent}>
         <View style={styles.rowMainLine}>
-          <ThemedText type="small" style={styles.rowDescription}>
-            {transaction.category}
+          <ThemedText type="default" style={styles.rowDescription}>
+            {category.name}
           </ThemedText>
           <ThemedText
-            type="small"
+            type="default"
             style={[
               styles.amountCell,
               transaction.amount >= 0 ? styles.amountIncome : styles.amountExpense
@@ -54,7 +53,7 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
           <View style={styles.labelsBadge}>
             {transaction.labels.map((lbl, idx) => (
               <View key={idx} style={styles.labelBadge}>
-                <ThemedText style={styles.rowLabel}>
+                <ThemedText type="small" style={styles.rowLabel}>
                   {lbl}
                 </ThemedText>
               </View>
@@ -62,7 +61,7 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
           </View>
         )}
         {transaction.note && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.rowNote}>
+          <ThemedText type="small" themeColor="text" style={styles.rowNote}>
             {transaction.note}
           </ThemedText>
         )}
@@ -81,8 +80,8 @@ const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
   return (
     <ThemedView type="backgroundElement" style={styles.section}>
       <View style={styles.dateHeader}>
-        <ThemedText type="smallBold">{formattedDate}</ThemedText>
-        <ThemedText type="smallBold">{formatTransactionAmount(section.totalAmount)}</ThemedText>
+        <ThemedText type="default">{formattedDate}</ThemedText>
+        <ThemedText type="default">{formatTransactionAmount(section.totalAmount)}</ThemedText>
       </View>
       <View style={styles.table}>
         {section.transactions.map((tx, idx) => (
@@ -93,11 +92,61 @@ const TransactionSection: React.FC<TransactionSectionProps> = ({ section }) => {
   );
 };
 
-// Data - will be replaced with a version that returns this structure [ OLD DATA MOVED TO @/data/transactions
 // Data - will be replaced with a version that gets data from database
-// Currently using static data from @/data/transactions (DailyTransactions)
+// Currently fetching from SQLite database
 
 export default function TimelineScreen() {
+  const [transactions, setTransactions] = useState<DailyTransactions[]>([]);
+  const [totalCashFlow, setTotalCashFlow] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Wait for database to initialize before loading transactions
+    const timer = setTimeout(() => {
+      loadTransactions();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const loadTransactions = async () => {
+    try {
+      const dbTransactions = await database.getTransactionsWithCategories();
+      const grouped = groupTransactionsByDate(dbTransactions);
+      setTransactions(grouped);
+
+      const total = dbTransactions.reduce((sum, t) => sum + t.amount, 0);
+      setTotalCashFlow(total);
+    } catch (error) {
+      console.error('Failed to load transactions:', error);
+      // Retry if database not ready
+      if (error instanceof Error && error.message.includes('not connected')) {
+        setTimeout(loadTransactions, 1000);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const groupTransactionsByDate = (txs: TransactionUI[]): DailyTransactions[] => {
+    const groups = new Map<string, TransactionUI[]>();
+
+    for (const tx of txs) {
+      const dateKey = tx.date.toISOString().split('T')[0];
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      groups.get(dateKey)!.push(tx);
+    }
+
+    return Array.from(groups.entries())
+      .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+      .map(([dateStr, txs]) => ({
+        date: new Date(dateStr),
+        totalAmount: txs.reduce((sum, t) => sum + t.amount, 0),
+        transactions: txs,
+      }));
+  };
+
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {
     ...safeAreaInsets,
@@ -127,7 +176,7 @@ export default function TimelineScreen() {
     >
       <ThemedView style={styles.container}>
         <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">{formatCurrency(645)}</ThemedText>
+          <ThemedText type="subtitle">{formatCurrency(totalCashFlow)}</ThemedText>
           <View style={styles.timelineRow}>
             <ThemedText style={styles.centerText} themeColor="textSecondary">
               Cash Flow
@@ -135,35 +184,14 @@ export default function TimelineScreen() {
           </View>
         </ThemedView>
 
-        <Pressable style={({ pressed }) => [styles.buttonSection, pressed && styles.pressed]}>
-          <ThemedView type="backgroundElement" style={styles.buttonWrapper}>
-            <SymbolView
-              tintColor={theme.text}
-              name={{ ios: 'chart.pie.fill', android: 'pie_chart', web: 'pie_chart' }}
-              size={20}
-            />
-            <ThemedText type="small" style={styles.buttonText}>
-              Spending Overview
-            </ThemedText>
-          </ThemedView>
-        </Pressable>
-
         <ThemedView style={styles.sectionsWrapper}>
-          {TRANSACTION_SECTIONS.map((section, idx) => (
+          {transactions.map((section, idx) => (
             <TransactionSection key={idx} section={section} />
           ))}
         </ThemedView>
 
         {Platform.OS === 'web' && <WebBadge />}
       </ThemedView>
-
-      <Pressable style={styles.fab} onPress={() => { /* TODO: handle add action */ }}>
-        <SymbolView
-          name={{ ios: 'plus', android: 'add', web: 'add' }}
-          size={28}
-          tintColor="#fff"
-        />
-      </Pressable>
     </ScrollView>
   );
 }
@@ -195,25 +223,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.one,
     gap: Spacing.two,
-  },
-  buttonSection: {
-    opacity: 1,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  buttonWrapper: {
-    padding: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.four,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    alignSelf: 'center',
-    marginBottom: Spacing.two,
-  },
-  buttonText: {
-    marginLeft: Spacing.one,
   },
   sectionsWrapper: {
     gap: 0,
@@ -265,7 +274,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.one,
-    marginTop: 2,
+    marginBottom: 0,
   },
   labelBadge: {
     backgroundColor: '#e3f2fd',

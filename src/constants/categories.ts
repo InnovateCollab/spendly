@@ -1,84 +1,132 @@
-import { SymbolViewProps } from 'expo-symbols';
-
-export interface Category {
-    name: string;
-    icon: SymbolViewProps['name'];
-    color: string;
-}
+import { Category } from '@/schemas/category';
 
 export const CATEGORIES: Record<string, Category> = {
     groceries: {
+        id: 1,
         name: 'Groceries',
         icon: { ios: 'cart.fill', android: 'shopping_cart', web: 'shopping_cart' },
         color: '#10b981',
+        type: 'expense',
     },
     gas: {
+        id: 2,
         name: 'Gas',
         icon: { ios: 'fuelpump.fill', android: 'local_gas_station', web: 'local_gas_station' },
         color: '#f97316',
+        type: 'expense',
     },
     coffee: {
+        id: 3,
         name: 'Coffee',
         icon: { ios: 'cup.and.saucer.fill', android: 'coffee', web: 'coffee' },
         color: '#92400e',
+        type: 'expense',
     },
     dining: {
+        id: 4,
         name: 'Dining',
         icon: { ios: 'fork.knife', android: 'restaurant', web: 'restaurant' },
         color: '#ef4444',
+        type: 'expense',
     },
     entertainment: {
+        id: 5,
         name: 'Entertainment',
         icon: { ios: 'film.fill', android: 'movie', web: 'movie' },
         color: '#8b5cf6',
+        type: 'expense',
     },
     parking: {
+        id: 6,
         name: 'Parking',
         icon: { ios: 'car.fill', android: 'local_parking', web: 'local_parking' },
         color: '#6b7280',
+        type: 'expense',
     },
     pharmacy: {
+        id: 7,
         name: 'Pharmacy',
         icon: { ios: 'cross.case.fill', android: 'local_pharmacy', web: 'local_pharmacy' },
         color: '#3b82f6',
+        type: 'expense',
     },
     books: {
+        id: 8,
         name: 'Books',
         icon: { ios: 'book.fill', android: 'menu_book', web: 'menu_book' },
         color: '#f59e0b',
+        type: 'expense',
     },
     gym: {
+        id: 9,
         name: 'Gym',
         icon: { ios: 'figure.run', android: 'fitness_center', web: 'fitness_center' },
         color: '#06b6d4',
+        type: 'expense',
     },
     transport: {
+        id: 10,
         name: 'Transport',
         icon: { ios: 'bus.fill', android: 'directions_bus', web: 'directions_bus' },
         color: '#06b6d4',
+        type: 'expense',
     },
     shopping: {
+        id: 11,
         name: 'Shopping',
         icon: { ios: 'bag.fill', android: 'shopping_bag', web: 'shopping_bag' },
         color: '#ec4899',
+        type: 'expense',
     },
     health: {
+        id: 12,
         name: 'Health',
         icon: { ios: 'heart.fill', android: 'favorite', web: 'favorite' },
         color: '#f43f5e',
+        type: 'expense',
     },
     salary: {
+        id: 13,
         name: 'Salary',
         icon: { ios: 'banknote.fill', android: 'attach_money', web: 'attach_money' },
         color: '#10b981',
+        type: 'income',
     },
     freelance: {
+        id: 14,
         name: 'Freelance',
         icon: { ios: 'briefcase.fill', android: 'work', web: 'work' },
         color: '#3b82f6',
+        type: 'income',
+    },
+    utilities: {
+        id: 15,
+        name: 'Utilities',
+        icon: { ios: 'bolt.fill', android: 'electrical_services', web: 'electrical_services' },
+        color: '#f59e0b',
+        type: 'expense',
+    },
+    personalCare: {
+        id: 16,
+        name: 'Personal Care',
+        icon: { ios: 'sparkles', android: 'spa', web: 'spa' },
+        color: '#ec4899',
+        type: 'expense',
+    },
+    travel: {
+        id: 17,
+        name: 'Travel',
+        icon: { ios: 'airplane', android: 'flight', web: 'flight' },
+        color: '#06b6d4',
+        type: 'expense',
+    },
+    subscriptions: {
+        id: 18,
+        name: 'Subscriptions',
+        icon: { ios: 'list.bullet', android: 'subscriptions', web: 'subscriptions' },
+        color: '#8b5cf6',
+        type: 'expense',
     },
 };
 
-export function getCategory(categoryName: string): Category | undefined {
-    return CATEGORIES[categoryName.toLowerCase()];
-}
+export type CategoryKey = keyof typeof CATEGORIES;

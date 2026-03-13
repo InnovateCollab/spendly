@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -8,39 +8,39 @@ import { ThemedView } from '@/components/themed-view';
 import { WebBadge } from '@/components/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Category, CategoryType } from '@/schemas';
 import { formatCurrency, formatTransactionAmount } from '@/utils/formatting';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { database } from '@/database';
+import { TransactionUI } from '@/schemas/transaction';
 
 // Helper function to determine if category is income or expense
-const isIncomeCategory = (category: string): boolean => {
-    const incomeCategories = ['Salary', 'Freelance', 'Bonus', 'Investment', 'Refund'];
-    return incomeCategories.includes(category);
+const isIncomeCategory = (category: Category): boolean => {
+    return category.type === 'income';
 };
 
 // Labels Section Component
-const LabelsSection = () => {
-    const [selectedType, setSelectedType] = React.useState<'income' | 'expense'>('expense');
+const LabelsSection = ({ transactions }: { transactions: TransactionUI[] }) => {
+    const [selectedType, setSelectedType] = React.useState<CategoryType>('expense');
     const [showAllLabels, setShowAllLabels] = React.useState(false);
 
     // Calculate label totals from transactions
     const labelMap = new Map<string, { amount: number; count: number }>();
 
-    TRANSACTION_SECTIONS.forEach(section => {
-        section.transactions.forEach(tx => {
-            const isIncome = isIncomeCategory(tx.category);
-            if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
-                if (tx.labels) {
-                    tx.labels.forEach(label => {
-                        if (!labelMap.has(label)) {
-                            labelMap.set(label, { amount: 0, count: 0 });
-                        }
-                        const labelData = labelMap.get(label)!;
-                        labelData.amount += tx.amount;
-                        labelData.count += 1;
-                    });
-                }
+    transactions.forEach(tx => {
+        const isIncome = isIncomeCategory(tx.category);
+        if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
+            if (tx.labels) {
+                tx.labels.forEach(label => {
+                    if (!labelMap.has(label)) {
+                        labelMap.set(label, { amount: 0, count: 0 });
+                    }
+                    const labelData = labelMap.get(label)!;
+                    labelData.amount += tx.amount;
+                    labelData.count += 1;
+                });
             }
-        });
+        }
     });
 
     // Convert to array and sort by amount descending (use absolute value for sorting)
@@ -120,7 +120,7 @@ const LabelsSection = () => {
                                 <SymbolView
                                     tintColor="#FBBF24"
                                     name={{ ios: 'tag.fill', android: 'local_offer', web: 'local_offer' }}
-                                    size={16}
+                                    size={24}
                                 />
                                 <View style={styles.labelTextContent}>
                                     <ThemedText type="small" style={styles.labelName}>
@@ -158,25 +158,23 @@ const LabelsSection = () => {
     );
 };
 
-// Simple Pie Chart Component
-const CategoryPieChart = ({ selectedType, showAllCategories, onToggleAllCategories }: { selectedType: 'income' | 'expense'; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
+// Bar Chart Component
+const CategoryBarChart = ({ transactions, selectedType, showAllCategories, onToggleAllCategories }: { transactions: TransactionUI[]; selectedType: CategoryType; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
     // Calculate category totals from transactions
     const categoryMap = new Map<string, { amount: number; color: string }>();
     const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
     let colorIndex = 0;
 
-    TRANSACTION_SECTIONS.forEach(section => {
-        section.transactions.forEach(tx => {
-            const isIncome = isIncomeCategory(tx.category);
-            if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
-                if (!categoryMap.has(tx.category)) {
-                    categoryMap.set(tx.category, { amount: 0, color: colors[colorIndex % colors.length] });
-                    colorIndex++;
-                }
-                const category = categoryMap.get(tx.category)!;
-                category.amount += tx.amount;
+    transactions.forEach(tx => {
+        const isIncome = isIncomeCategory(tx.category);
+        if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
+            if (!categoryMap.has(tx.category.name)) {
+                categoryMap.set(tx.category.name, { amount: 0, color: colors[colorIndex % colors.length] });
+                colorIndex++;
             }
-        });
+            const category = categoryMap.get(tx.category.name)!;
+            category.amount += tx.amount;
+        }
     });
 
     // Convert to array and calculate percentages using absolute values
@@ -201,21 +199,21 @@ const CategoryPieChart = ({ selectedType, showAllCategories, onToggleAllCategori
     const hasMoreCategories = categoryData.length > 5;
 
     return (
-        <View style={styles.pieChartWrapper}>
+        <View style={styles.barChartWrapper}>
             <View style={styles.chartContainer}>
-                <View style={styles.pieSegmentContainer}>
+                <View style={styles.barSegmentContainer}>
                     {categoryData.map((item, idx) => (
                         <View
                             key={idx}
                             style={[
-                                styles.pieSegment,
+                                styles.barSegment,
                                 {
                                     backgroundColor: item.color,
                                     width: `${item.percentage}%`,
                                 },
                             ]}
                         >
-                            <ThemedText type="small" style={styles.pieLabel}>
+                            <ThemedText type="small" style={styles.barLabel} numberOfLines={1}>
                                 {item.percentage}%
                             </ThemedText>
                         </View>
@@ -262,9 +260,10 @@ export default function OverviewScreen() {
         bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
     };
     const theme = useTheme();
-    const [selectedCategoryType, setSelectedCategoryType] = React.useState<'income' | 'expense'>('expense');
+    const [selectedCategoryType, setSelectedCategoryType] = React.useState<CategoryType>('expense');
     const [selectedMonth, setSelectedMonth] = React.useState<string>('December 2025');
     const [showAllCategories, setShowAllCategories] = React.useState(false);
+    const [transactions, setTransactions] = useState<TransactionUI[]>([]);
 
     const months = [
         { label: 'September 2025', value: 'September 2025' },
@@ -275,22 +274,56 @@ export default function OverviewScreen() {
         { label: 'February 2026', value: 'February 2026' },
     ];
 
+    // Load transactions from database on native, use static data on web
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            // Web: use static data
+            const webTransactions: TransactionUI[] = [];
+            TRANSACTION_SECTIONS.forEach(section => {
+                section.transactions.forEach(tx => {
+                    webTransactions.push(tx);
+                });
+            });
+            setTransactions(webTransactions);
+        } else {
+            // Native: load from database
+            const timer = setTimeout(async () => {
+                try {
+                    const dbTransactions = await database.getTransactionsWithCategories();
+                    setTransactions(dbTransactions);
+                } catch (error) {
+                    console.error('Failed to load transactions:', error);
+                    // Retry if database not ready
+                    if (error instanceof Error && error.message.includes('not connected')) {
+                        setTimeout(async () => {
+                            try {
+                                const dbTransactions = await database.getTransactionsWithCategories();
+                                setTransactions(dbTransactions);
+                            } catch {
+                                // Silent fail on retry
+                            }
+                        }, 1000);
+                    }
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, []);
+
     // Calculate totals from transactions
     let totalIncome = 0;
     let totalExpenses = 0;
     let categoryExpenseTotal = 0;
     let categoryIncomeTotal = 0;
 
-    TRANSACTION_SECTIONS.forEach(section => {
-        section.transactions.forEach(tx => {
-            if (tx.amount > 0) {
-                totalIncome += tx.amount;
-                categoryIncomeTotal += tx.amount;
-            } else {
-                totalExpenses += Math.abs(tx.amount);
-                categoryExpenseTotal += Math.abs(tx.amount);
-            }
-        });
+    transactions.forEach(tx => {
+        if (tx.amount > 0) {
+            totalIncome += tx.amount;
+            categoryIncomeTotal += tx.amount;
+        } else {
+            totalExpenses += Math.abs(tx.amount);
+            categoryExpenseTotal += Math.abs(tx.amount);
+        }
     });
 
     const monthlyCashFlow = totalIncome - totalExpenses;
@@ -441,8 +474,9 @@ export default function OverviewScreen() {
                         </Pressable>
                     </View>
 
-                    <View style={styles.pieChartCard}>
-                        <CategoryPieChart
+                    <View style={styles.barChartCard}>
+                        <CategoryBarChart
+                            transactions={transactions}
                             selectedType={selectedCategoryType}
                             showAllCategories={showAllCategories}
                             onToggleAllCategories={() => setShowAllCategories(!showAllCategories)}
@@ -450,18 +484,10 @@ export default function OverviewScreen() {
                     </View>
                 </ThemedView>
 
-                <LabelsSection />
+                <LabelsSection transactions={transactions} />
 
                 {Platform.OS === 'web' && <WebBadge />}
             </ThemedView>
-
-            <Pressable style={styles.fab} onPress={() => { /* TODO: handle add action */ }}>
-                <SymbolView
-                    name={{ ios: 'plus', android: 'add', web: 'add' }}
-                    size={28}
-                    tintColor="#fff"
-                />
-            </Pressable>
         </ScrollView>
     );
 }
@@ -500,6 +526,7 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.three,
         flexDirection: 'row',
         justifyContent: 'space-between',
+        marginHorizontal: Spacing.one,
     },
     statCard: {
         flex: 1,
@@ -528,11 +555,13 @@ const styles = StyleSheet.create({
     categoriesSection: {
         paddingHorizontal: Spacing.four,
         gap: Spacing.two,
+        marginHorizontal: Spacing.one,
     },
     labelsSection: {
         paddingHorizontal: Spacing.four,
         gap: Spacing.two,
         paddingTop: Spacing.three,
+        marginHorizontal: Spacing.one,
     },
     sectionTitle: {
         paddingTop: Spacing.two,
@@ -581,9 +610,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Spacing.four,
-        paddingVertical: Spacing.three,
-        minHeight: 56,
+        paddingHorizontal: Spacing.three,
+        paddingVertical: Spacing.two,
+        minHeight: 48,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
         gap: Spacing.two,
@@ -611,12 +640,12 @@ const styles = StyleSheet.create({
         minWidth: 80,
         textAlign: 'right',
     },
-    pieChartCard: {
+    barChartCard: {
         padding: Spacing.three,
         borderRadius: Spacing.two,
         alignItems: 'center',
     },
-    pieChartWrapper: {
+    barChartWrapper: {
         width: '100%',
     },
     chartContainer: {
@@ -625,20 +654,21 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.two,
         width: '100%',
     },
-    pieSegmentContainer: {
-        width: 280,
+    barSegmentContainer: {
+        width: 350,
         height: 80,
         flexDirection: 'row',
         borderRadius: Spacing.two,
         overflow: 'hidden',
         backgroundColor: '#f0f0f0',
     },
-    pieSegment: {
+    barSegment: {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100%',
+        minWidth: 25,
     },
-    pieLabel: {
+    barLabel: {
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 11,
@@ -654,9 +684,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Spacing.four,
-        paddingVertical: Spacing.three,
-        minHeight: 56,
+        paddingHorizontal: Spacing.two,
+        paddingVertical: Spacing.two,
+        minHeight: 48,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
         gap: Spacing.two,
@@ -680,22 +710,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         minWidth: 80,
         textAlign: 'right',
-    },
-    fab: {
-        position: 'absolute',
-        bottom: Spacing.four,
-        right: Spacing.four,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: '#007AFF',
-        justifyContent: 'center',
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
     },
     monthList: {
         gap: Spacing.two,
