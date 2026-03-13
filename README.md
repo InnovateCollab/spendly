@@ -65,6 +65,7 @@ Then check the console output for database test results.
 ### Access Database via Command Line (macOS)
 
 Inspect the actual SQLite database file directly:
+x
 
 1. Find your iOS simulator database:
 
@@ -82,41 +83,30 @@ Inspect the actual SQLite database file directly:
    ```sql
    .tables                    -- List tables
    .schema                    -- View table structure
-   SELECT * FROM transactions; -- View all transactions
+   .mode column               -- Pretty output format
+   .headers on                -- Pretty output format
    SELECT * FROM categories;   -- View all categories
+   SELECT * FROM transactions; -- View all transactions
    SELECT COUNT(*) FROM transactions; -- Count records
+   DROP TABLE IF EXISTS transactions; -- Drop tables
+   DROP TABLE IF EXISTS categories;   -- Drop tables
+   .exit
    ```
 
 ### Note on Web Support
 
 SQLite database functionality only works on native platforms (iOS/Android). The web version uses stub implementations and displays appropriate messages. For database testing, use iOS Simulator or Android Emulator.
 
-## Get a fresh project
+## Start project
 
 When you're ready, run:
 
 ```bash
-npm run reset-project
+npm run start
 ```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
 ### Other setup steps
 
 - To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
 - If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
 - Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

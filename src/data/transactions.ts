@@ -75,9 +75,9 @@ export const TRANSACTION_SECTIONS: DailyTransactions[] = [
     totalAmount: -210.25,
     transactions: [
       { id: 27, category: CATEGORIES.groceries, amount: -48.75, date: new Date(2025, 11, 8), labels: ['Market', 'Food'] },
-      { id: 28, category: CATEGORIES.gym, amount: -60.00, date: new Date(2025, 11, 8), note: 'Monthly gym', labels: ['FitnessPro', 'Fitness'] },
-      { id: 29, category: CATEGORIES.entertainment, amount: -22.50, date: new Date(2025, 11, 8), labels: ['Netflix', 'Streaming'] },
-      { id: 30, category: CATEGORIES.gas, amount: -14.00, date: new Date(2025, 11, 8), labels: ['Gas Station', 'Fuel'] },
+      { id: 28, category: CATEGORIES.gym, amount: -60.00, date: new Date(2025, 11, 8), note: 'Monthly gym', labels: [] },
+      { id: 29, category: CATEGORIES.entertainment, amount: -22.50, date: new Date(2025, 11, 8), labels: [] },
+      { id: 30, category: CATEGORIES.gas, amount: -14.00, date: new Date(2025, 11, 8), labels: [] },
       { id: 31, category: CATEGORIES.utilities, amount: -65.00, date: new Date(2025, 11, 8), note: 'Internet bill', labels: ['ISP', 'Monthly'] },
     ],
   },

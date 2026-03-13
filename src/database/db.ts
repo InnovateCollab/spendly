@@ -62,9 +62,10 @@ export class Database {
 
         for (const category of Object.values(CATEGORIES)) {
             try {
-                const result = await this.db.runAsync(
+                // insert category
+                await this.db.runAsync(
                     `INSERT OR IGNORE INTO categories (name, icon_ios, icon_android, icon_web, color, type)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+                     VALUES (?, ?, ?, ?, ?, ?)`,
                     [
                         category.name,
                         typeof category.icon === 'object' ? (category.icon.ios || '') : '',
@@ -74,6 +75,7 @@ export class Database {
                         category.type,
                     ]
                 );
+
                 // Get the actual ID from database
                 const row = await this.db.getFirstAsync<{ id: number }>(
                     `SELECT id FROM categories WHERE name = ?`,
@@ -93,6 +95,16 @@ export class Database {
     private async seedTransactions(categoryIdMap: Map<string, number>) {
         if (!this.db) throw new Error('Database not connected');
 
+        // Check if transactions already exist to prevent duplicates
+        const totalTransactions = await this.db.getFirstAsync<{ count: number }>(
+            `SELECT COUNT(*) as count FROM transactions`
+        );
+
+        if (totalTransactions && totalTransactions.count > 0) {
+            console.log(`Database already contains ${totalTransactions.count} transactions, skipping seed`);
+            return;
+        }
+
         for (const dailyTransactions of TRANSACTION_SECTIONS) {
             for (const transaction of dailyTransactions.transactions) {
                 try {
@@ -103,7 +115,7 @@ export class Database {
                     }
 
                     await this.db.runAsync(
-                        `INSERT OR IGNORE INTO transactions (category_id, amount, date, note, labels)
+                        `INSERT INTO transactions (category_id, amount, date, note, labels)
            VALUES (?, ?, ?, ?, ?)`,
                         [
                             categoryId,

@@ -1,5 +1,5 @@
 import { SymbolView } from 'expo-symbols';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -11,6 +11,8 @@ import { useTheme } from '@/hooks/use-theme';
 import { Category, CategoryType } from '@/schemas';
 import { formatCurrency, formatTransactionAmount } from '@/utils/formatting';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { database } from '@/database';
+import { TransactionUI } from '@/schemas/transaction';
 
 // Helper function to determine if category is income or expense
 const isIncomeCategory = (category: Category): boolean => {
@@ -18,29 +20,27 @@ const isIncomeCategory = (category: Category): boolean => {
 };
 
 // Labels Section Component
-const LabelsSection = () => {
+const LabelsSection = ({ transactions }: { transactions: TransactionUI[] }) => {
     const [selectedType, setSelectedType] = React.useState<CategoryType>('expense');
     const [showAllLabels, setShowAllLabels] = React.useState(false);
 
     // Calculate label totals from transactions
     const labelMap = new Map<string, { amount: number; count: number }>();
 
-    TRANSACTION_SECTIONS.forEach(section => {
-        section.transactions.forEach(tx => {
-            const isIncome = isIncomeCategory(tx.category);
-            if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
-                if (tx.labels) {
-                    tx.labels.forEach(label => {
-                        if (!labelMap.has(label)) {
-                            labelMap.set(label, { amount: 0, count: 0 });
-                        }
-                        const labelData = labelMap.get(label)!;
-                        labelData.amount += tx.amount;
-                        labelData.count += 1;
-                    });
-                }
+    transactions.forEach(tx => {
+        const isIncome = isIncomeCategory(tx.category);
+        if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
+            if (tx.labels) {
+                tx.labels.forEach(label => {
+                    if (!labelMap.has(label)) {
+                        labelMap.set(label, { amount: 0, count: 0 });
+                    }
+                    const labelData = labelMap.get(label)!;
+                    labelData.amount += tx.amount;
+                    labelData.count += 1;
+                });
             }
-        });
+        }
     });
 
     // Convert to array and sort by amount descending (use absolute value for sorting)
@@ -159,24 +159,22 @@ const LabelsSection = () => {
 };
 
 // Simple Pie Chart Component
-const CategoryPieChart = ({ selectedType, showAllCategories, onToggleAllCategories }: { selectedType: CategoryType; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
+const CategoryPieChart = ({ transactions, selectedType, showAllCategories, onToggleAllCategories }: { transactions: TransactionUI[]; selectedType: CategoryType; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
     // Calculate category totals from transactions
     const categoryMap = new Map<string, { amount: number; color: string }>();
     const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
     let colorIndex = 0;
 
-    TRANSACTION_SECTIONS.forEach(section => {
-        section.transactions.forEach(tx => {
-            const isIncome = isIncomeCategory(tx.category);
-            if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
-                if (!categoryMap.has(tx.category.name)) {
-                    categoryMap.set(tx.category.name, { amount: 0, color: colors[colorIndex % colors.length] });
-                    colorIndex++;
-                }
-                const category = categoryMap.get(tx.category.name)!;
-                category.amount += tx.amount;
+    transactions.forEach(tx => {
+        const isIncome = isIncomeCategory(tx.category);
+        if ((isIncome && selectedType === 'income') || (!isIncome && selectedType === 'expense')) {
+            if (!categoryMap.has(tx.category.name)) {
+                categoryMap.set(tx.category.name, { amount: 0, color: colors[colorIndex % colors.length] });
+                colorIndex++;
             }
-        });
+            const category = categoryMap.get(tx.category.name)!;
+            category.amount += tx.amount;
+        }
     });
 
     // Convert to array and calculate percentages using absolute values
@@ -265,6 +263,7 @@ export default function OverviewScreen() {
     const [selectedCategoryType, setSelectedCategoryType] = React.useState<CategoryType>('expense');
     const [selectedMonth, setSelectedMonth] = React.useState<string>('December 2025');
     const [showAllCategories, setShowAllCategories] = React.useState(false);
+    const [transactions, setTransactions] = useState<TransactionUI[]>([]);
 
     const months = [
         { label: 'September 2025', value: 'September 2025' },
@@ -275,22 +274,56 @@ export default function OverviewScreen() {
         { label: 'February 2026', value: 'February 2026' },
     ];
 
+    // Load transactions from database on native, use static data on web
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            // Web: use static data
+            const webTransactions: TransactionUI[] = [];
+            TRANSACTION_SECTIONS.forEach(section => {
+                section.transactions.forEach(tx => {
+                    webTransactions.push(tx);
+                });
+            });
+            setTransactions(webTransactions);
+        } else {
+            // Native: load from database
+            const timer = setTimeout(async () => {
+                try {
+                    const dbTransactions = await database.getTransactionsWithCategories();
+                    setTransactions(dbTransactions);
+                } catch (error) {
+                    console.error('Failed to load transactions:', error);
+                    // Retry if database not ready
+                    if (error instanceof Error && error.message.includes('not connected')) {
+                        setTimeout(async () => {
+                            try {
+                                const dbTransactions = await database.getTransactionsWithCategories();
+                                setTransactions(dbTransactions);
+                            } catch {
+                                // Silent fail on retry
+                            }
+                        }, 1000);
+                    }
+                }
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, []);
+
     // Calculate totals from transactions
     let totalIncome = 0;
     let totalExpenses = 0;
     let categoryExpenseTotal = 0;
     let categoryIncomeTotal = 0;
 
-    TRANSACTION_SECTIONS.forEach(section => {
-        section.transactions.forEach(tx => {
-            if (tx.amount > 0) {
-                totalIncome += tx.amount;
-                categoryIncomeTotal += tx.amount;
-            } else {
-                totalExpenses += Math.abs(tx.amount);
-                categoryExpenseTotal += Math.abs(tx.amount);
-            }
-        });
+    transactions.forEach(tx => {
+        if (tx.amount > 0) {
+            totalIncome += tx.amount;
+            categoryIncomeTotal += tx.amount;
+        } else {
+            totalExpenses += Math.abs(tx.amount);
+            categoryExpenseTotal += Math.abs(tx.amount);
+        }
     });
 
     const monthlyCashFlow = totalIncome - totalExpenses;
@@ -443,6 +476,7 @@ export default function OverviewScreen() {
 
                     <View style={styles.pieChartCard}>
                         <CategoryPieChart
+                            transactions={transactions}
                             selectedType={selectedCategoryType}
                             showAllCategories={showAllCategories}
                             onToggleAllCategories={() => setShowAllCategories(!showAllCategories)}
@@ -450,7 +484,7 @@ export default function OverviewScreen() {
                     </View>
                 </ThemedView>
 
-                <LabelsSection />
+                <LabelsSection transactions={transactions} />
 
                 {Platform.OS === 'web' && <WebBadge />}
             </ThemedView>
