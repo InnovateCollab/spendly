@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -61,7 +61,7 @@ const TransactionRow: React.FC<TransactionRowProps> = ({ transaction }) => {
           </View>
         )}
         {transaction.note && (
-          <ThemedText type="small" themeColor="textSecondary" style={styles.rowNote}>
+          <ThemedText type="small" themeColor="text" style={styles.rowNote}>
             {transaction.note}
           </ThemedText>
         )}
@@ -184,19 +184,6 @@ export default function TimelineScreen() {
           </View>
         </ThemedView>
 
-        <Pressable style={({ pressed }) => [styles.buttonSection, pressed && styles.pressed]}>
-          <ThemedView type="backgroundElement" style={styles.buttonWrapper}>
-            <SymbolView
-              tintColor={theme.text}
-              name={{ ios: 'chart.pie.fill', android: 'pie_chart', web: 'pie_chart' }}
-              size={28}
-            />
-            <ThemedText type="small" style={styles.buttonText}>
-              Spending Overview
-            </ThemedText>
-          </ThemedView>
-        </Pressable>
-
         <ThemedView style={styles.sectionsWrapper}>
           {transactions.map((section, idx) => (
             <TransactionSection key={idx} section={section} />
@@ -236,25 +223,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: Spacing.one,
     gap: Spacing.two,
-  },
-  buttonSection: {
-    opacity: 1,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  buttonWrapper: {
-    padding: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.four,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-    alignSelf: 'center',
-    marginBottom: Spacing.two,
-  },
-  buttonText: {
-    marginLeft: Spacing.one,
   },
   sectionsWrapper: {
     gap: 0,
@@ -306,7 +274,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.one,
-    marginTop: 2,
+    marginBottom: 0,
   },
   labelBadge: {
     backgroundColor: '#e3f2fd',
@@ -321,8 +289,6 @@ const styles = StyleSheet.create({
   rowNote: {
     fontSize: 11,
     opacity: 0.7,
-    paddingTop: Spacing.one,
-    paddingBottom: Spacing.one,
   },
   amountCell: {
     textAlign: 'right',

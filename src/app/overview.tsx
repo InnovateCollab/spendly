@@ -158,8 +158,8 @@ const LabelsSection = ({ transactions }: { transactions: TransactionUI[] }) => {
     );
 };
 
-// Simple Pie Chart Component
-const CategoryPieChart = ({ transactions, selectedType, showAllCategories, onToggleAllCategories }: { transactions: TransactionUI[]; selectedType: CategoryType; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
+// Bar Chart Component
+const CategoryBarChart = ({ transactions, selectedType, showAllCategories, onToggleAllCategories }: { transactions: TransactionUI[]; selectedType: CategoryType; showAllCategories: boolean; onToggleAllCategories: () => void }) => {
     // Calculate category totals from transactions
     const categoryMap = new Map<string, { amount: number; color: string }>();
     const colors = ['#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181', '#AA96DA'];
@@ -199,21 +199,21 @@ const CategoryPieChart = ({ transactions, selectedType, showAllCategories, onTog
     const hasMoreCategories = categoryData.length > 5;
 
     return (
-        <View style={styles.pieChartWrapper}>
+        <View style={styles.barChartWrapper}>
             <View style={styles.chartContainer}>
-                <View style={styles.pieSegmentContainer}>
+                <View style={styles.barSegmentContainer}>
                     {categoryData.map((item, idx) => (
                         <View
                             key={idx}
                             style={[
-                                styles.pieSegment,
+                                styles.barSegment,
                                 {
                                     backgroundColor: item.color,
                                     width: `${item.percentage}%`,
                                 },
                             ]}
                         >
-                            <ThemedText type="small" style={styles.pieLabel}>
+                            <ThemedText type="small" style={styles.barLabel} numberOfLines={1}>
                                 {item.percentage}%
                             </ThemedText>
                         </View>
@@ -474,8 +474,8 @@ export default function OverviewScreen() {
                         </Pressable>
                     </View>
 
-                    <View style={styles.pieChartCard}>
-                        <CategoryPieChart
+                    <View style={styles.barChartCard}>
+                        <CategoryBarChart
                             transactions={transactions}
                             selectedType={selectedCategoryType}
                             showAllCategories={showAllCategories}
@@ -526,6 +526,7 @@ const styles = StyleSheet.create({
         paddingBottom: Spacing.three,
         flexDirection: 'row',
         justifyContent: 'space-between',
+        marginHorizontal: Spacing.one,
     },
     statCard: {
         flex: 1,
@@ -554,11 +555,13 @@ const styles = StyleSheet.create({
     categoriesSection: {
         paddingHorizontal: Spacing.four,
         gap: Spacing.two,
+        marginHorizontal: Spacing.one,
     },
     labelsSection: {
         paddingHorizontal: Spacing.four,
         gap: Spacing.two,
         paddingTop: Spacing.three,
+        marginHorizontal: Spacing.one,
     },
     sectionTitle: {
         paddingTop: Spacing.two,
@@ -607,9 +610,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Spacing.four,
-        paddingVertical: Spacing.three,
-        minHeight: 56,
+        paddingHorizontal: Spacing.three,
+        paddingVertical: Spacing.two,
+        minHeight: 48,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
         gap: Spacing.two,
@@ -637,12 +640,12 @@ const styles = StyleSheet.create({
         minWidth: 80,
         textAlign: 'right',
     },
-    pieChartCard: {
+    barChartCard: {
         padding: Spacing.three,
         borderRadius: Spacing.two,
         alignItems: 'center',
     },
-    pieChartWrapper: {
+    barChartWrapper: {
         width: '100%',
     },
     chartContainer: {
@@ -651,20 +654,21 @@ const styles = StyleSheet.create({
         marginBottom: Spacing.two,
         width: '100%',
     },
-    pieSegmentContainer: {
-        width: 280,
+    barSegmentContainer: {
+        width: 350,
         height: 80,
         flexDirection: 'row',
         borderRadius: Spacing.two,
         overflow: 'hidden',
         backgroundColor: '#f0f0f0',
     },
-    pieSegment: {
+    barSegment: {
         justifyContent: 'center',
         alignItems: 'center',
         height: '100%',
+        minWidth: 25,
     },
-    pieLabel: {
+    barLabel: {
         color: '#fff',
         fontWeight: 'bold',
         fontSize: 11,
@@ -680,9 +684,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: Spacing.four,
-        paddingVertical: Spacing.three,
-        minHeight: 56,
+        paddingHorizontal: Spacing.two,
+        paddingVertical: Spacing.two,
+        minHeight: 48,
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
         gap: Spacing.two,
