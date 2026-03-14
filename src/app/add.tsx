@@ -1,9 +1,9 @@
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useState } from 'react';
-import { AddTransactionModal } from '@/components/add-transaction-modal';
+import { AddTransactionModal } from '@/components/modals/add-transaction-modal';
 
-export default function AddScreen() {
+export default function Add() {
     const router = useRouter();
     const [showModal, setShowModal] = useState(false);
 

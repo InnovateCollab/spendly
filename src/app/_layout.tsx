@@ -1,24 +1,30 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useEffect } from 'react';
-import { useColorScheme, Platform } from 'react-native';
+import { useRef } from 'react';
+import { useColorScheme } from 'react-native';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-import { database } from '@/database';
+import { AnimatedSplashOverlay } from '@/components/icons/animated-icon';
+import AppTabs from '@/components/layout/app-tabs';
+import { useInitializeApp } from '@/hooks/use-initialize-app';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const { isInitialized, error } = useInitializeApp();
+  const hasShownSplash = useRef(false);
 
-  useEffect(() => {
-    // Initialize database (auto-selects native or web version)
-    if (Platform.OS !== 'web') {
-      database.init().catch(error => console.error('Database init failed:', error));
-    }
-  }, []);
+  // Show splash overlay only on app startup
+  const showSplash = !hasShownSplash.current && !isInitialized;
+  if (!hasShownSplash.current && isInitialized) {
+    hasShownSplash.current = true;
+  }
+
+  // Log initialization errors (handle gracefully - app continues anyway)
+  if (error) {
+    console.warn('App failed to initialize fully, running with degraded mode:', error);
+  }
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
+      {showSplash && <AnimatedSplashOverlay />}
       <AppTabs />
     </ThemeProvider>
   );

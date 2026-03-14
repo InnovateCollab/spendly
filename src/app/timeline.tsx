@@ -4,10 +4,10 @@ import { Platform, ScrollView, StyleSheet, View, Pressable } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { AddTransactionModal } from '@/components/add-transaction-modal';
+import { ThemedText } from '@/components/ui/themed-text';
+import { ThemedView } from '@/components/ui/themed-view';
+import { WebBadge } from '@/components/ui/web-badge';
+import { AddTransactionModal } from '@/components/modals/add-transaction-modal';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { database } from '@/database';
 import { type TransactionUI, type DailyTransactions } from '@/schemas/transaction';
