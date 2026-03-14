@@ -12,6 +12,7 @@ import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { database } from '@/database';
 import { type TransactionUI, type DailyTransactions } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
+import { useDatabaseRefresh } from '@/contexts/database-context';
 import { formatCurrency, formatDate, formatTransactionAmount } from '@/utils/formatting';
 
 // Components
@@ -108,6 +109,7 @@ export default function TimelineScreen() {
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<TransactionUI | undefined>(undefined);
+  const { refreshTrigger } = useDatabaseRefresh();
 
   const handleEditTransaction = (transaction: TransactionUI) => {
     setEditingTransaction(transaction);
@@ -179,6 +181,13 @@ export default function TimelineScreen() {
       };
     }, [loadTransactions])
   );
+
+  // Reload data when database is refreshed (from debug menu)
+  useEffect(() => {
+    console.log('Database refreshed - reloading transactions');
+    setLoading(true);
+    loadTransactions();
+  }, [refreshTrigger, loadTransactions]);
 
   const safeAreaInsets = useSafeAreaInsets();
   const insets = {

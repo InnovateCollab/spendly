@@ -2,8 +2,8 @@
  * SQLite Database Connection and CRUD Operations
  * Handles database connection, table creation, and data operations.
  * 
- * Seeding is handled separately via scripts/db-seed.ts (use: npm run db:seed)
- * Resetting is handled via scripts/db-reset.ts (use: npm run db:reset)
+ * Auto-seeding: Database is automatically populated with test data on first app launch
+ * if it's empty (handled in src/hooks/use-initialize-app.ts)
  */
 
 import * as SQLite from 'expo-sqlite';
@@ -87,6 +87,36 @@ export class Database {
         );
 
         return result.lastInsertRowId;
+    }
+
+    /**
+     * Insert a new category
+     */
+    async insertCategory(category: Omit<Category, 'id'>) {
+        if (!this.db) throw new Error('Database not connected');
+
+        const iconData = typeof category.icon === 'object' ? category.icon : {};
+
+        try {
+            const result = await this.db.runAsync(
+                `INSERT OR IGNORE INTO categories (name, icon_ios, icon_android, icon_web, color, type)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    category.name,
+                    iconData.ios || '',
+                    iconData.android || '',
+                    iconData.web || '',
+                    category.color,
+                    category.type,
+                ]
+            );
+
+            return result.lastInsertRowId;
+        } catch (error) {
+            // Category already exists, silently ignore
+            console.log(`Category "${category.name}" already exists`);
+            return 0;
+        }
     }
 
     /**

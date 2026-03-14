@@ -2,12 +2,14 @@ import { SymbolView } from 'expo-symbols';
 import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/ui/themed-text';
 import { ThemedView } from '@/components/ui/themed-view';
 import { WebBadge } from '@/components/ui/web-badge';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { useDatabaseRefresh } from '@/contexts/database-context';
 import { Category, CategoryType } from '@/schemas';
 import { formatCurrency, formatTransactionAmount } from '@/utils/formatting';
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
@@ -269,6 +271,7 @@ export default function OverviewScreen() {
         bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
     };
     const theme = useTheme();
+    const { refreshTrigger } = useDatabaseRefresh();
     const [selectedCategoryType, setSelectedCategoryType] = React.useState<CategoryType>('expense');
     const [selectedMonth, setSelectedMonth] = React.useState<string>('December 2025');
     const [showAllCategories, setShowAllCategories] = React.useState(false);
@@ -318,6 +321,16 @@ export default function OverviewScreen() {
             return () => clearTimeout(timer);
         }
     }, []);
+
+    // Reload data when database is refreshed (from debug menu)
+    useEffect(() => {
+        if (Platform.OS !== 'web') {
+            console.log('Database refreshed - reloading transactions');
+            database.getTransactionsWithCategories()
+                .then(dbTransactions => setTransactions(dbTransactions))
+                .catch(error => console.log('Failed to reload transactions:', error));
+        }
+    }, [refreshTrigger]);
 
     // Calculate totals from transactions
     let totalIncome = 0;

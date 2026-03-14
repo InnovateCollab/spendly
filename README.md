@@ -48,56 +48,73 @@ You can start developing by editing the files inside the **app** directory. This
 
 ## Database Management
 
-The database is automatically initialized and tables are created on first app startup. For development, you can manage test data using the following scripts:
+### Auto-Seeding
 
-### Quick Start (Development)
+The app automatically initializes the database with test data on first launch:
+
+1. **First Launch:** Empty database is created → auto-seeds with categories and transactions
+2. **Subsequent Launches:** Database loads existing data (no re-seeding)
+
+This works seamlessly on both **iOS Simulator** and **Android Emulator**.
+
+### Debug Menu (In-App Controls)
+
+During development, use the **Debug Menu** to manage test data directly in the app:
+
+1. **Start the app:**
+
+   ```bash
+   npm start
+   ```
+
+2. **Open simulator:**
+   - Press `i` for iOS simulator
+   - Press `a` for Android emulator
+
+3. **Access Debug Menu:**
+   - Look for the red 🛠️ button at the bottom-right corner
+   - Tap it to open the debug menu
+
+4. **Available Options:**
+   - **📊 Database Stats** — Shows transaction and category counts
+   - **🗑️ Reset Database** — Clear all data (keeps structure)
+   - **🌱 Reseed Data** — Clear all data and reload test data
+
+### How Page Refresh Works
+
+When you use the Debug Menu to reset or reseed the database, the app automatically refreshes the Timeline and Overview pages **without requiring navigation**:
+
+- **Architecture:** `devMenu.tsx` → calls `triggerRefresh()` → `DatabaseContext` broadcasts change → Timeline/Overview hooks detect refresh trigger → Pages auto-reload data
+- **Result:** Data updates in place, pages stay visible, modal closes automatically
+- **No reload flashing:** Pages update smoothly within the same navigation context
+
+This is implemented via `DatabaseContext` (in `src/contexts/`), which provides a lightweight notification system for database changes. Development-only feature.
+
+### Development Workflows
+
+**Fresh Start:**
 
 ```bash
-# Start the app with an empty database
 npm start
-
-# In another terminal, seed the database with test data
-npm run db:seed
-
-# The app will immediately reflect the seeded data
+# Tap 🛠️ → Reseed Data → Fresh test data loaded
 ```
 
-### Available Database Scripts
-
-| Command                 | Description                                                         |
-| ----------------------- | ------------------------------------------------------------------- |
-| `npm run db:seed`       | Populate database with test data (categories + sample transactions) |
-| `npm run db:seed:force` | Force re-seed, clearing existing data first                         |
-| `npm run db:reset`      | Clear all data from database (keeps structure)                      |
-| `npm run db:reset:hard` | Delete entire database file                                         |
-
-### Common Development Workflows
-
-**Start Fresh:**
+**Clean Test Session:**
 
 ```bash
-npm run db:reset        # Clear all data
-npm run db:seed         # Repopulate with test data
-npm start               # Launch app
+npm start
+# Tap 🛠️ → Reset Database → All data cleared
+# Tap 🛠️ → Reseed Data → Fresh test data
 ```
 
-**Complete Reset:**
+**Just Delete & Restart (Nuclear Option):**
 
 ```bash
-npm run db:reset:hard   # Delete database entirely
-npm start               # Create new empty database
-npm run db:seed         # Seed with test data
+# Stop app (Ctrl+C)
+# Delete app from simulator
+# npm start → Select simulator (i/a)
+# Fresh empty database → Auto-seeded
 ```
-
-**Between Test Sessions:**
-
-```bash
-npm run db:reset        # Clear previous test data
-npm run db:seed         # Get fresh test data
-# Now you can test features with clean state
-```
-
-For detailed documentation, see [scripts/README.md](scripts/README.md)
 
 ## Database Testing & Introspection
 
