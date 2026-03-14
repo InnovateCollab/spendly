@@ -1,131 +1,32 @@
-import { SymbolView } from 'expo-symbols';
 import React, { useEffect, useState, useCallback } from 'react';
-import { Platform, ScrollView, StyleSheet, View, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/ui/themed-text';
 import { ThemedView } from '@/components/ui/themed-view';
 import { WebBadge } from '@/components/ui/web-badge';
 import { AddTransactionModal } from '@/components/modals/add-transaction-modal';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { database } from '@/database';
+import { TransactionSection } from '@/components/timeline/transaction-section';
+import { MaxContentWidth, Spacing } from '@/constants/theme';
 import { type TransactionUI, type DailyTransactions } from '@/schemas/transaction';
 import { useTheme } from '@/hooks/use-theme';
+import { useLayoutInsets } from '@/hooks/use-layout-insets';
+import { useTransactionLoader } from '@/hooks/use-transaction-loader';
 import { useDatabaseRefresh } from '@/contexts/database-context';
-import { formatCurrency, formatDate, formatTransactionAmount } from '@/utils/formatting';
-
-// Components
-interface TransactionRowProps {
-  transaction: TransactionUI;
-  onEdit: (transaction: TransactionUI) => void;
-}
-
-const TransactionRow: React.FC<TransactionRowProps> = ({ transaction, onEdit }) => {
-  const theme = useTheme();
-  const category = transaction.category;
-
-  if (!category) {
-    console.warn(`Category not found: ${transaction.category?.name || transaction.category}`);
-    return null;
-  }
-
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.tableRow, pressed && { opacity: 0.7 }]}
-      onPress={() => onEdit(transaction)}
-    >
-      <SymbolView
-        name={category.icon}
-        size={28}
-        tintColor={category.color || theme.textSecondary}
-        style={styles.rowIcon}
-      />
-      <View style={styles.rowContent}>
-        <View style={styles.rowMainLine}>
-          <ThemedText type="default" style={styles.rowDescription}>
-            {category.name}
-          </ThemedText>
-          <ThemedText
-            type="default"
-            style={[
-              styles.amountCell,
-              transaction.amount >= 0 ? styles.amountIncome : styles.amountExpense
-            ]}
-          >
-            {formatTransactionAmount(transaction.amount)}
-          </ThemedText>
-        </View>
-        {transaction.labels && transaction.labels.length > 0 && (
-          <View style={styles.labelsBadge}>
-            {transaction.labels.map((lbl, idx) => (
-              <View key={idx} style={styles.labelBadge}>
-                <ThemedText type="small" style={styles.rowLabel}>
-                  {lbl}
-                </ThemedText>
-              </View>
-            ))}
-          </View>
-        )}
-        {transaction.note && (
-          <ThemedText type="small" themeColor="text" style={styles.rowNote}>
-            {transaction.note}
-          </ThemedText>
-        )}
-      </View>
-    </Pressable>
-  );
-};
-
-interface TransactionSectionProps {
-  section: DailyTransactions;
-  onEdit: (transaction: TransactionUI) => void;
-}
-
-const TransactionSection: React.FC<TransactionSectionProps> = ({ section, onEdit }) => {
-  const formattedDate = formatDate(section.date);
-
-  return (
-    <ThemedView type="backgroundElement" style={styles.section}>
-      <View style={styles.dateHeader}>
-        <ThemedText type="default">{formattedDate}</ThemedText>
-        <ThemedText type="default">{formatTransactionAmount(section.totalAmount)}</ThemedText>
-      </View>
-      <View style={styles.table}>
-        {section.transactions.map((tx, idx) => (
-          <TransactionRow key={idx} transaction={tx} onEdit={onEdit} />
-        ))}
-      </View>
-    </ThemedView>
-  );
-};
-
-// Data - will be replaced with a version that gets data from database
-// Currently fetching from SQLite database
+import { AmountDisplay } from '@/components/common/amount-display';
 
 export default function TimelineScreen() {
-  const [transactions, setTransactions] = useState<DailyTransactions[]>([]);
-  const [totalCashFlow, setTotalCashFlow] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<TransactionUI | undefined>(undefined);
+  const theme = useTheme();
+  const { insets, contentPlatformStyle } = useLayoutInsets();
+  const { transactions: rawTransactions, loadTransactions } = useTransactionLoader();
   const { refreshTrigger } = useDatabaseRefresh();
 
-  const handleEditTransaction = (transaction: TransactionUI) => {
-    setEditingTransaction(transaction);
-    setIsModalVisible(true);
-  };
+  const [transactions, setTransactions] = useState<DailyTransactions[]>([]);
+  const [totalCashFlow, setTotalCashFlow] = useState(0);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<TransactionUI | undefined>(undefined);
 
-  const handleCloseModal = () => {
-    setIsModalVisible(false);
-    setEditingTransaction(undefined);
-  };
-
-  const handleTransactionSuccess = () => {
-    setLoading(true);
-    loadTransactions();
-  };
-
+  // Group transactions by date
   const groupTransactionsByDate = useCallback((txs: TransactionUI[]): DailyTransactions[] => {
     const groups = new Map<string, TransactionUI[]>();
 
@@ -146,68 +47,42 @@ export default function TimelineScreen() {
       }));
   }, []);
 
-  const loadTransactions = useCallback(async () => {
-    try {
-      const dbTransactions = await database.getTransactionsWithCategories();
-      const grouped = groupTransactionsByDate(dbTransactions);
-      setTransactions(grouped);
-
-      const total = dbTransactions.reduce((sum, t) => sum + t.amount, 0);
-      setTotalCashFlow(total);
-      setLoading(false);
-    } catch (error) {
-      console.log('Failed to load transactions:', error);
-      setLoading(false);
-      // Retry if database not ready
-      if (error instanceof Error && error.message.includes('not connected')) {
-        setTimeout(() => loadTransactions(), 1000);
-      }
-    }
-  }, [groupTransactionsByDate]);
-
-  // Initial load on component mount
+  // Update local state when transactions load
   useEffect(() => {
-    loadTransactions();
-  }, [loadTransactions]);
+    const grouped = groupTransactionsByDate(rawTransactions);
+    setTransactions(grouped);
+    const total = rawTransactions.reduce((sum, t) => sum + t.amount, 0);
+    setTotalCashFlow(total);
+  }, [rawTransactions, groupTransactionsByDate]);
 
-  // Reload data when screen comes into focus (from adding a transaction)
+  const handleEditTransaction = (transaction: TransactionUI) => {
+    setEditingTransaction(transaction);
+    setIsModalVisible(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalVisible(false);
+    setEditingTransaction(undefined);
+  };
+
+  const handleTransactionSuccess = () => {
+    loadTransactions();
+  };
+
+  // Reload on screen focus
   useFocusEffect(
     useCallback(() => {
       console.log('Timeline screen focused - reloading transactions');
-      setLoading(true);
       loadTransactions();
-      return () => {
-        // Cleanup if needed
-      };
+      return () => { };
     }, [loadTransactions])
   );
 
-  // Reload data when database is refreshed (from debug menu)
+  // Reload on database refresh (debug menu)
   useEffect(() => {
     console.log('Database refreshed - reloading transactions');
-    setLoading(true);
     loadTransactions();
   }, [refreshTrigger, loadTransactions]);
-
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
-
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
-  });
 
 
   return (
@@ -218,9 +93,9 @@ export default function TimelineScreen() {
         contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
       >
         <ThemedView style={styles.container}>
-          <ThemedView style={styles.titleContainer}>
-            <ThemedText type="subtitle">{formatCurrency(totalCashFlow)}</ThemedText>
-            <View style={styles.timelineRow}>
+          <ThemedView style={styles.header}>
+            <AmountDisplay amount={totalCashFlow} type="currency" />
+            <View style={styles.headerLabel}>
               <ThemedText style={styles.centerText} themeColor="textSecondary">
                 Cash Flow
               </ThemedText>
@@ -259,113 +134,25 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     flexGrow: 1,
   },
-  titleContainer: {
+  header: {
     gap: Spacing.half,
     alignItems: 'center',
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.three,
   },
-  centerText: {
-    textAlign: 'center',
-  },
-  timelineRow: {
+  headerLabel: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Spacing.one,
     gap: Spacing.two,
   },
+  centerText: {
+    textAlign: 'center',
+  },
   sectionsWrapper: {
     gap: 0,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.one,
-  },
-  section: {
-    padding: 0,
-    gap: 0,
-  },
-  dateHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: Spacing.four, // Increased horizontal padding
-    paddingVertical: Spacing.one * 2, // Increased vertical padding for more height
-    backgroundColor: '#f0f0f0',
-    marginBottom: 0,
-  },
-  table: {
-    overflow: 'hidden',
-  },
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.one,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-    backgroundColor: '#ffffff',
-    gap: Spacing.two,
-  },
-  rowIcon: {
-    marginTop: 2,
-  },
-  rowContent: {
-    flex: 1,
-    gap: 2,
-  },
-  rowMainLine: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  rowDescription: {
-    flex: 1,
-  },
-  labelsBadge: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-    marginBottom: 0,
-  },
-  labelBadge: {
-    backgroundColor: '#e3f2fd',
-    borderRadius: 10,
-    paddingHorizontal: Spacing.one * 1.5,
-    paddingVertical: 0,
-  },
-  rowLabel: {
-    fontSize: 9,
-    fontWeight: '500',
-  },
-  rowNote: {
-    fontSize: 11,
-    opacity: 0.7,
-  },
-  amountCell: {
-    textAlign: 'right',
-    marginLeft: Spacing.two,
-  },
-  amountIncome: {
-    color: '#22c55e',
-  },
-  amountExpense: {
-    color: '#ef4444',
-  },
-  fab: {
-    position: 'absolute',
-    right: 28,
-    bottom: 36,
-    backgroundColor: '#22c55e',
-    borderRadius: 999,
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 10,
   },
 });
