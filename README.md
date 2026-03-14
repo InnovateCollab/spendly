@@ -46,21 +46,66 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-## Database Testing & Introspection
+## Database Management
 
-### Test Database on iOS Simulator
+The database is automatically initialized and tables are created on first app startup. For development, you can manage test data using the following scripts:
 
-The database is automatically initialized and tested when running on iOS. You'll see logs in the console showing:
-
-- Tables created ✓
-- Categories seeded ✓
-- Test transactions inserted ✓
+### Quick Start (Development)
 
 ```bash
-npx expo start --ios
+# Start the app with an empty database
+npm start
+
+# In another terminal, seed the database with test data
+npm run db:seed
+
+# The app will immediately reflect the seeded data
 ```
 
-Then check the console output for database test results.
+### Available Database Scripts
+
+| Command                 | Description                                                         |
+| ----------------------- | ------------------------------------------------------------------- |
+| `npm run db:seed`       | Populate database with test data (categories + sample transactions) |
+| `npm run db:seed:force` | Force re-seed, clearing existing data first                         |
+| `npm run db:reset`      | Clear all data from database (keeps structure)                      |
+| `npm run db:reset:hard` | Delete entire database file                                         |
+
+### Common Development Workflows
+
+**Start Fresh:**
+
+```bash
+npm run db:reset        # Clear all data
+npm run db:seed         # Repopulate with test data
+npm start               # Launch app
+```
+
+**Complete Reset:**
+
+```bash
+npm run db:reset:hard   # Delete database entirely
+npm start               # Create new empty database
+npm run db:seed         # Seed with test data
+```
+
+**Between Test Sessions:**
+
+```bash
+npm run db:reset        # Clear previous test data
+npm run db:seed         # Get fresh test data
+# Now you can test features with clean state
+```
+
+For detailed documentation, see [scripts/README.md](scripts/README.md)
+
+## Database Testing & Introspection
+
+### Viewing Database Contents
+
+The database is automatically initialized and the schema is created when running on iOS. To populate it with test data, use one of the database scripts above.
+
+You'll see logs in the console showing:
 
 ### Access Database via Command Line (macOS)
 

@@ -1,12 +1,14 @@
 /**
- * SQLite Database Connection and Initialization
- * Handles database setup, migrations, and seeding
+ * SQLite Database Connection and CRUD Operations
+ * Handles database connection, table creation, and data operations.
+ * 
+ * Seeding is handled separately via scripts/db-seed.ts (use: npm run db:seed)
+ * Resetting is handled via scripts/db-reset.ts (use: npm run db:reset)
  */
 
 import * as SQLite from 'expo-sqlite';
 import { DATABASE_SCHEMA } from './schema';
 import { CATEGORIES } from '@/constants/categories';
-import { TRANSACTION_SECTIONS } from '@/data/transactions';
 import { Transaction, TransactionUI } from '@/schemas/transaction';
 import { Category } from '@/schemas/category';
 
@@ -43,12 +45,6 @@ export class Database {
             await this.createTables();
             console.log('✓ Database tables created');
 
-            const categoryIdMap = await this.seedCategories();
-            console.log('✓ Categories seeded');
-
-            await this.seedTransactions(categoryIdMap);
-            console.log('✓ Transactions seeded');
-
             this.isInitialized = true;
             console.log('✓ Database initialized successfully');
         } catch (error) {
@@ -67,85 +63,6 @@ export class Database {
 
         for (const statement of statements) {
             await this.db.execAsync(statement);
-        }
-    }
-
-    private async seedCategories(): Promise<Map<string, number>> {
-        if (!this.db) throw new Error('Database not connected');
-
-        const categoryIdMap = new Map<string, number>();
-
-        for (const category of Object.values(CATEGORIES)) {
-            try {
-                // insert category
-                await this.db.runAsync(
-                    `INSERT OR IGNORE INTO categories (name, icon_ios, icon_android, icon_web, color, type)
-                     VALUES (?, ?, ?, ?, ?, ?)`,
-                    [
-                        category.name,
-                        typeof category.icon === 'object' ? (category.icon.ios || '') : '',
-                        typeof category.icon === 'object' ? (category.icon.android || '') : '',
-                        typeof category.icon === 'object' ? (category.icon.web || '') : '',
-                        category.color,
-                        category.type,
-                    ]
-                );
-
-                // Get the actual ID from database
-                const row = await this.db.getFirstAsync<{ id: number }>(
-                    `SELECT id FROM categories WHERE name = ?`,
-                    [category.name]
-                );
-                if (row) {
-                    categoryIdMap.set(category.name, row.id);
-                }
-            } catch (error) {
-                console.error(`Failed to seed category ${category.name}:`, error);
-            }
-        }
-
-        return categoryIdMap;
-    }
-
-    private async seedTransactions(categoryIdMap: Map<string, number>) {
-        if (!this.db) throw new Error('Database not connected');
-
-        // Check if transactions already exist to prevent duplicates
-        const totalTransactions = await this.db.getFirstAsync<{ count: number }>(
-            `SELECT COUNT(*) as count FROM transactions`
-        );
-
-        if (totalTransactions && totalTransactions.count > 0) {
-            console.log(`Database already contains ${totalTransactions.count} transactions, skipping seed`);
-            return;
-        }
-
-        for (const dailyTransactions of TRANSACTION_SECTIONS) {
-            for (const transaction of dailyTransactions.transactions) {
-                try {
-                    const categoryId = categoryIdMap.get(transaction.category.name);
-                    if (!categoryId) {
-                        console.warn(`Category not found for transaction: ${transaction.category.name}`);
-                        continue;
-                    }
-
-                    await this.db.runAsync(
-                        `INSERT INTO transactions (category_id, amount, date, note, labels)
-           VALUES (?, ?, ?, ?, ?)`,
-                        [
-                            categoryId,
-                            transaction.amount,
-                            transaction.date instanceof Date
-                                ? transaction.date.toISOString()
-                                : transaction.date,
-                            transaction.note || null,
-                            transaction.labels ? JSON.stringify(transaction.labels) : null,
-                        ]
-                    );
-                } catch (error) {
-                    console.error(`Failed to seed transaction:`, error);
-                }
-            }
         }
     }
 

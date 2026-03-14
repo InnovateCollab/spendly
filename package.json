@@ -8,7 +8,11 @@
     "ios": "expo start --ios --device 'iPhone 17 Pro'",
     "web": "expo start --web",
     "lint": "expo lint",
-    "format": "expo lint --fix"
+    "format": "expo lint --fix",
+    "db:seed": "ts-node scripts/db-seed.ts",
+    "db:seed:force": "ts-node scripts/db-seed.ts --force",
+    "db:reset": "ts-node scripts/db-reset.ts",
+    "db:reset:hard": "ts-node scripts/db-reset.ts --hard"
   },
   "dependencies": {
     "@react-native-community/datetimepicker": "^8.6.0",
