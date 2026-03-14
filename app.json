@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
-      "bundleIdentifier": "com.expense.spendly"
+      "bundleIdentifier": "com.expense.spendly",
+      "infoPlist": {
+        "NSDocumentBrowserUsageDescription": "This app needs access to your files to import CSV transactions",
+        "NSFileProviderDomainUsageDescription": "This app needs access to your files to import CSV transactions"
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +23,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.expense.spendly"
+      "package": "com.expense.spendly",
+      "permissions": ["READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
     },
     "web": {
       "output": "static",
