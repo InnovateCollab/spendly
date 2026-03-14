@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { Platform, ScrollView, StyleSheet, View, PanResponder, GestureResponderEvent, PanResponderGestureState } from 'react-native';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/ui/themed-text';
@@ -12,106 +12,24 @@ import { type TransactionUI, type DailyTransactions } from '@/schemas/transactio
 import { useTheme } from '@/hooks/use-theme';
 import { useLayoutInsets } from '@/hooks/use-layout-insets';
 import { useTransactionLoader } from '@/hooks/use-transaction-loader';
+import { useMonthNavigation } from '@/hooks/use-month-navigation';
 import { useDatabaseRefresh } from '@/contexts/database-context';
 import { AmountDisplay } from '@/components/common/amount-display';
 
 export default function TimelineScreen() {
   const theme = useTheme();
   const { insets, contentPlatformStyle } = useLayoutInsets();
-  const { transactions: rawTransactions, loadTransactions } = useTransactionLoader();
+  const { currentMonth, setCurrentMonth, panResponder } = useMonthNavigation();
+  const { transactions: monthTransactions, loadTransactions } = useTransactionLoader(currentMonth);
   const { refreshTrigger } = useDatabaseRefresh();
 
-  const [allTransactions, setAllTransactions] = useState<TransactionUI[]>([]);
-  const [transactions, setTransactions] = useState<DailyTransactions[]>([]);
-  const [totalCashFlow, setTotalCashFlow] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<TransactionUI | undefined>(undefined);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Refs to store latest state values for use in event handlers
-  const currentMonthRef = useRef(currentMonth);
-  useEffect(() => {
-    currentMonthRef.current = currentMonth;
-  }, [currentMonth]);
-
-  const allTransactionsRef = useRef(allTransactions);
-  useEffect(() => {
-    allTransactionsRef.current = allTransactions;
-  }, [allTransactions]);
-
-  // Filter transactions for a specific month
-  const filterTransactionsByMonth = useCallback((txs: TransactionUI[], month: Date): TransactionUI[] => {
-    return txs.filter(tx =>
-      tx.date.getFullYear() === month.getFullYear() &&
-      tx.date.getMonth() === month.getMonth()
-    );
-  }, []);
-
-  // Handle swipe gestures - memoized with dependencies
-  const handleSwipe = useCallback((
-    evt: GestureResponderEvent,
-    gestureState: PanResponderGestureState
-  ) => {
-    const { dx } = gestureState;
-    const SWIPE_THRESHOLD = 50;
-
-    if (dx > SWIPE_THRESHOLD) {
-      // Swiped right - go to previous month
-      const newMonth = new Date(currentMonthRef.current.getFullYear(), currentMonthRef.current.getMonth() - 1, 1);
-      const hasTransactions = allTransactionsRef.current.some(tx =>
-        tx.date.getFullYear() === newMonth.getFullYear() &&
-        tx.date.getMonth() === newMonth.getMonth()
-      );
-      if (hasTransactions) {
-        setCurrentMonth(newMonth);
-      }
-    } else if (dx < -SWIPE_THRESHOLD) {
-      // Swiped left - go to next month
-      const newMonth = new Date(currentMonthRef.current.getFullYear(), currentMonthRef.current.getMonth() + 1, 1);
-      const hasTransactions = allTransactionsRef.current.some(tx =>
-        tx.date.getFullYear() === newMonth.getFullYear() &&
-        tx.date.getMonth() === newMonth.getMonth()
-      );
-      if (hasTransactions) {
-        setCurrentMonth(newMonth);
-      }
-    }
-  }, []);
-
-  const panResponder = useRef(PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderRelease: handleSwipe,
-  })).current;
-  const groupTransactionsByDate = useCallback((txs: TransactionUI[]): DailyTransactions[] => {
-    const groups = new Map<string, TransactionUI[]>();
-
-    for (const tx of txs) {
-      const dateKey = tx.date.toISOString().split('T')[0];
-      if (!groups.has(dateKey)) {
-        groups.set(dateKey, []);
-      }
-      groups.get(dateKey)!.push(tx);
-    }
-
-    return Array.from(groups.entries())
-      .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
-      .map(([dateStr, txs]) => ({
-        date: new Date(dateStr),
-        totalAmount: txs.reduce((sum, t) => sum + t.amount, 0),
-        transactions: txs,
-      }));
-  }, []);
-
-  // Update transactions when rawTransactions or currentMonth changes
-  useEffect(() => {
-    setAllTransactions(rawTransactions);
-    const monthTransactions = filterTransactionsByMonth(rawTransactions, currentMonth);
-    const grouped = groupTransactionsByDate(monthTransactions);
-    setTransactions(grouped);
-    const total = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
-    setTotalCashFlow(total);
-  }, [rawTransactions, currentMonth, filterTransactionsByMonth, groupTransactionsByDate]);
+  // Calculate total cash flow for the current month
+  const totalCashFlow = useMemo(() => {
+    return (monthTransactions as DailyTransactions[]).reduce((sum, day) => sum + day.totalAmount, 0);
+  }, [monthTransactions]);
 
   const handleEditTransaction = (transaction: TransactionUI) => {
     setEditingTransaction(transaction);
@@ -124,23 +42,23 @@ export default function TimelineScreen() {
   };
 
   const handleTransactionSuccess = () => {
-    loadTransactions();
+    loadTransactions(currentMonth);
   };
 
   // Reload on screen focus
   useFocusEffect(
     useCallback(() => {
       console.log('Timeline screen focused - reloading transactions');
-      loadTransactions();
+      loadTransactions(currentMonth);
       return () => { };
-    }, [loadTransactions])
+    }, [loadTransactions, currentMonth])
   );
 
   // Reload on database refresh (debug menu)
   useEffect(() => {
     console.log('Database refreshed - reloading transactions');
-    loadTransactions();
-  }, [refreshTrigger, loadTransactions]);
+    loadTransactions(currentMonth);
+  }, [refreshTrigger, loadTransactions, currentMonth]);
 
 
   return (
@@ -157,7 +75,10 @@ export default function TimelineScreen() {
               <ThemedText style={styles.monthHeader}>
                 {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </ThemedText>
-              <AmountDisplay amount={totalCashFlow} type="currency" />
+              <AmountDisplay
+                amount={totalCashFlow}
+                type="currency"
+              />
               <View style={styles.headerLabel}>
                 <ThemedText style={styles.centerText} themeColor="textSecondary">
                   Cash Flow
@@ -166,8 +87,8 @@ export default function TimelineScreen() {
             </ThemedView>
 
             <ThemedView style={styles.sectionsWrapper}>
-              {transactions.length > 0 ? (
-                transactions.map((section, idx) => (
+              {(monthTransactions as DailyTransactions[]).length > 0 ? (
+                (monthTransactions as DailyTransactions[]).map((section, idx) => (
                   <TransactionSection key={idx} section={section} onEdit={handleEditTransaction} />
                 ))
               ) : (

@@ -5,10 +5,14 @@
  */
 
 import { TRANSACTION_SECTIONS } from '@/data/transactions';
-import { Transaction, TransactionUI } from '@/schemas/transaction';
+import { Transaction, TransactionUI, DailyTransactions } from '@/schemas/transaction';
 
 class MockDatabase {
     private isInitialized = false;
+
+    // ============================================
+    // INITIALIZATION & CONNECTION
+    // ============================================
 
     async init() {
         // Mock initialization
@@ -16,10 +20,32 @@ class MockDatabase {
         console.log('✓ Mock database initialized (web)');
     }
 
+    async close() {
+        this.isInitialized = false;
+        console.log('✓ Mock database connection closed');
+    }
+
+    // ============================================
+    // CRUD: CREATE
+    // ============================================
+
     async insertTransaction(transaction: Omit<Transaction, 'id'>) {
         return Math.random() * 10000;
     }
 
+    async insertCategory() {
+        // Mock: No-op for web
+        return 0;
+    }
+
+    // ============================================
+    // CRUD: READ
+    // ============================================
+
+    /**
+     * Get all transactions ordered by date (newest first)
+     * Used to check if database has seed data
+     */
     async getTransactions(): Promise<Transaction[]> {
         return TRANSACTION_SECTIONS.reduce((acc, section) => {
             return [...acc, ...section.transactions.map(tx => ({
@@ -33,78 +59,67 @@ class MockDatabase {
         }, [] as Transaction[]);
     }
 
-    async getTransactionsByDate(date: Date): Promise<Transaction[]> {
-        const dateStr = date.toISOString().split('T')[0];
-        return (await this.getTransactions()).filter(
-            t => t.date.toISOString().split('T')[0] === dateStr
-        );
-    }
-
-    async getTransactionsByDateRange(
-        startDate: Date,
-        endDate: Date
-    ): Promise<Transaction[]> {
-        return (await this.getTransactions()).filter(
-            t => t.date >= startDate && t.date <= endDate
-        );
-    }
-
-    async getTransaction(id: number): Promise<Transaction | null> {
-        const transactions = await this.getTransactions();
-        return transactions.find(t => t.id === id) || null;
-    }
-
-    async updateTransaction(id: number, transaction: Partial<Transaction>) {
-        // Mock: No-op for web
-    }
-
-    async deleteTransaction(id: number) {
-        // Mock: No-op for web
-    }
-
-    async getTransactionCountByCategory(categoryId: number): Promise<number> {
-        const transactions = await this.getTransactions();
-        return transactions.filter(t => t.categoryId === categoryId).length;
-    }
-
-    async getTotalByCategory(categoryId: number): Promise<number> {
-        const transactions = await this.getTransactions();
-        return transactions
-            .filter(t => t.categoryId === categoryId)
-            .reduce((sum, t) => sum + t.amount, 0);
-    }
-
-    async clearTransactions() {
-        // Mock: No-op for web
-    }
-
+    /**
+     * Get all transactions with category data (for UI display)
+     */
     async getTransactionsWithCategories(): Promise<TransactionUI[]> {
         return TRANSACTION_SECTIONS.reduce((acc, section) => {
             return [...acc, ...section.transactions];
         }, [] as TransactionUI[]);
     }
 
-    async getTransactionsByDateWithCategories(date: Date): Promise<TransactionUI[]> {
-        const dateStr = date.toISOString().split('T')[0];
-        const all = await this.getTransactionsWithCategories();
-        return all.filter(
-            t => t.date.toISOString().split('T')[0] === dateStr
-        );
-    }
-
-    async getTransactionsByDateRangeWithCategories(
+    /**
+     * Get transactions grouped by date for a date range with daily totals
+     * Returns transactions organized by day with pre-calculated daily totals
+     */
+    async getGroupedTransactionsByDateRange(
         startDate: Date,
         endDate: Date
-    ): Promise<TransactionUI[]> {
+    ): Promise<DailyTransactions[]> {
         const all = await this.getTransactionsWithCategories();
-        return all.filter(
-            t => t.date >= startDate && t.date <= endDate
-        );
+        const filtered = all.filter(t => t.date >= startDate && t.date <= endDate);
+
+        // Group by date
+        const groups = new Map<string, TransactionUI[]>();
+        for (const tx of filtered) {
+            const dateKey = tx.date.toISOString().split('T')[0];
+            if (!groups.has(dateKey)) {
+                groups.set(dateKey, []);
+            }
+            groups.get(dateKey)!.push(tx);
+        }
+
+        // Convert to DailyTransactions array
+        return Array.from(groups.entries())
+            .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+            .map(([dateStr, txs]) => ({
+                date: new Date(dateStr),
+                totalAmount: txs.reduce((sum, t) => sum + t.amount, 0),
+                transactions: txs,
+            }));
     }
 
-    async close() {
-        this.isInitialized = false;
-        console.log('✓ Mock database connection closed');
+    // ============================================
+    // CRUD: UPDATE
+    // ============================================
+
+    async updateTransaction(id: number, transaction: Partial<Transaction>) {
+        // Mock: No-op for web
+    }
+
+    // ============================================
+    // CRUD: DELETE
+    // ============================================
+
+    async deleteTransaction(id: number) {
+        // Mock: No-op for web
+    }
+
+    /**
+     * Clear all transactions (for testing)
+     */
+    async clearTransactions() {
+        // Mock: No-op for web
     }
 }
 

@@ -9,7 +9,7 @@
 import * as SQLite from 'expo-sqlite';
 import { DATABASE_SCHEMA } from './schema';
 import { CATEGORIES } from '@/constants/categories';
-import { Transaction, TransactionUI } from '@/schemas/transaction';
+import { Transaction, TransactionUI, DailyTransactions } from '@/schemas/transaction';
 import { Category } from '@/schemas/category';
 
 const DATABASE_NAME = 'spendly.db';
@@ -18,6 +18,10 @@ export class Database {
     private db: SQLite.SQLiteDatabase | null = null;
     private isInitialized = false;
     private initPromise: Promise<void> | null = null;
+
+    // ============================================
+    // INITIALIZATION & CONNECTION
+    // ============================================
 
     async init() {
         // If already initialized, return immediately
@@ -66,15 +70,25 @@ export class Database {
         }
     }
 
-    /**
-     * Insert a new transaction
-     */
+    async close() {
+        if (this.db) {
+            await this.db.closeAsync();
+            this.db = null;
+            this.isInitialized = false;
+            console.log('✓ Database connection closed');
+        }
+    }
+
+    // ============================================
+    // CRUD: CREATE
+    // ============================================
+
     async insertTransaction(transaction: Omit<Transaction, 'id'>) {
         if (!this.db) throw new Error('Database not connected');
 
         const result = await this.db.runAsync(
             `INSERT INTO transactions (category_id, amount, date, note, labels)
-       VALUES (?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?)`,
             [
                 transaction.categoryId,
                 transaction.amount,
@@ -89,9 +103,6 @@ export class Database {
         return result.lastInsertRowId;
     }
 
-    /**
-     * Insert a new category
-     */
     async insertCategory(category: Omit<Category, 'id'>) {
         if (!this.db) throw new Error('Database not connected');
 
@@ -100,7 +111,7 @@ export class Database {
         try {
             const result = await this.db.runAsync(
                 `INSERT OR IGNORE INTO categories (name, icon_ios, icon_android, icon_web, color, type)
-         VALUES (?, ?, ?, ?, ?, ?)`,
+                 VALUES (?, ?, ?, ?, ?, ?)`,
                 [
                     category.name,
                     iconData.ios || '',
@@ -119,8 +130,13 @@ export class Database {
         }
     }
 
+    // ============================================
+    // CRUD: READ
+    // ============================================
+
     /**
      * Get all transactions ordered by date (newest first)
+     * Used to check if database has seed data
      */
     async getTransactions(): Promise<Transaction[]> {
         if (!this.db) throw new Error('Database not connected');
@@ -133,59 +149,61 @@ export class Database {
     }
 
     /**
-     * Get transactions for a specific date
+     * Get all transactions with category data (for UI display)
      */
-    async getTransactionsByDate(date: Date): Promise<Transaction[]> {
+    async getTransactionsWithCategories(): Promise<TransactionUI[]> {
         if (!this.db) throw new Error('Database not connected');
 
-        const dateStr = date.toISOString().split('T')[0];
-
         const rows = await this.db.getAllAsync<any>(
-            `SELECT * FROM transactions 
-       WHERE DATE(date) = DATE(?) 
-       ORDER BY date DESC`,
-            [dateStr]
+            `SELECT * FROM transactions ORDER BY date DESC`
         );
 
-        return rows.map(this.deserializeTransaction);
+        return rows.map(row => this.deserializeTransactionUI(row));
     }
 
     /**
-     * Get transactions for a date range
+     * Get transactions grouped by date for a date range with daily totals
+     * Returns transactions organized by day with pre-calculated daily totals
      */
-    async getTransactionsByDateRange(
+    async getGroupedTransactionsByDateRange(
         startDate: Date,
         endDate: Date
-    ): Promise<Transaction[]> {
+    ): Promise<DailyTransactions[]> {
         if (!this.db) throw new Error('Database not connected');
 
         const rows = await this.db.getAllAsync<any>(
             `SELECT * FROM transactions 
-       WHERE date >= ? AND date <= ? 
-       ORDER BY date DESC`,
+             WHERE date >= ? AND date <= ? 
+             ORDER BY date DESC, id DESC`,
             [startDate.toISOString(), endDate.toISOString()]
         );
 
-        return rows.map(this.deserializeTransaction);
+        const transactionUIs = rows.map(row => this.deserializeTransactionUI(row));
+
+        // Group by date
+        const groups = new Map<string, TransactionUI[]>();
+        for (const tx of transactionUIs) {
+            const dateKey = tx.date.toISOString().split('T')[0];
+            if (!groups.has(dateKey)) {
+                groups.set(dateKey, []);
+            }
+            groups.get(dateKey)!.push(tx);
+        }
+
+        // Convert to DailyTransactions array
+        return Array.from(groups.entries())
+            .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+            .map(([dateStr, txs]) => ({
+                date: new Date(dateStr),
+                totalAmount: txs.reduce((sum, t) => sum + t.amount, 0),
+                transactions: txs,
+            }));
     }
 
-    /**
-     * Get transaction by ID
-     */
-    async getTransaction(id: number): Promise<Transaction | null> {
-        if (!this.db) throw new Error('Database not connected');
+    // ============================================
+    // CRUD: UPDATE
+    // ============================================
 
-        const row = await this.db.getFirstAsync<any>(
-            `SELECT * FROM transactions WHERE id = ?`,
-            [id]
-        );
-
-        return row ? this.deserializeTransaction(row) : null;
-    }
-
-    /**
-     * Update a transaction
-     */
     async updateTransaction(id: number, transaction: Partial<Transaction>) {
         if (!this.db) throw new Error('Database not connected');
 
@@ -230,41 +248,14 @@ export class Database {
         );
     }
 
-    /**
-     * Delete a transaction
-     */
+    // ============================================
+    // CRUD: DELETE
+    // ============================================
+
     async deleteTransaction(id: number) {
         if (!this.db) throw new Error('Database not connected');
 
         await this.db.runAsync(`DELETE FROM transactions WHERE id = ?`, [id]);
-    }
-
-    /**
-     * Get transaction count by category
-     */
-    async getTransactionCountByCategory(categoryId: number): Promise<number> {
-        if (!this.db) throw new Error('Database not connected');
-
-        const result = await this.db.getFirstAsync<{ count: number }>(
-            `SELECT COUNT(*) as count FROM transactions WHERE category_id = ?`,
-            [categoryId]
-        );
-
-        return result?.count || 0;
-    }
-
-    /**
-     * Get total amount by category
-     */
-    async getTotalByCategory(categoryId: number): Promise<number> {
-        if (!this.db) throw new Error('Database not connected');
-
-        const result = await this.db.getFirstAsync<{ total: number }>(
-            `SELECT SUM(amount) as total FROM transactions WHERE category_id = ?`,
-            [categoryId]
-        );
-
-        return result?.total || 0;
     }
 
     /**
@@ -276,67 +267,9 @@ export class Database {
         await this.db.execAsync('DELETE FROM transactions');
     }
 
-    /**
-     * Get all transactions with category data (for UI display)
-     */
-    async getTransactionsWithCategories(): Promise<TransactionUI[]> {
-        if (!this.db) throw new Error('Database not connected');
-
-        const rows = await this.db.getAllAsync<any>(
-            `SELECT * FROM transactions ORDER BY date DESC`
-        );
-
-        return rows.map(row => this.deserializeTransactionUI(row));
-    }
-
-    /**
-     * Get transactions for a specific date with category data (for UI display)
-     */
-    async getTransactionsByDateWithCategories(date: Date): Promise<TransactionUI[]> {
-        if (!this.db) throw new Error('Database not connected');
-
-        const dateStr = date.toISOString().split('T')[0];
-
-        const rows = await this.db.getAllAsync<any>(
-            `SELECT * FROM transactions 
-       WHERE DATE(date) = DATE(?) 
-       ORDER BY date DESC`,
-            [dateStr]
-        );
-
-        return rows.map(row => this.deserializeTransactionUI(row));
-    }
-
-    /**
-     * Get transactions for a date range with category data (for UI display)
-     */
-    async getTransactionsByDateRangeWithCategories(
-        startDate: Date,
-        endDate: Date
-    ): Promise<TransactionUI[]> {
-        if (!this.db) throw new Error('Database not connected');
-
-        const rows = await this.db.getAllAsync<any>(
-            `SELECT * FROM transactions 
-       WHERE date >= ? AND date <= ? 
-       ORDER BY date DESC`,
-            [startDate.toISOString(), endDate.toISOString()]
-        );
-
-        return rows.map(row => this.deserializeTransactionUI(row));
-    }
-
-    /**
-     * Close database connection
-     */
-    async close() {
-        if (this.db) {
-            await this.db.closeAsync();
-            this.db = null;
-            this.isInitialized = false;
-            console.log('✓ Database connection closed');
-        }
-    }
+    // ============================================
+    // PRIVATE HELPERS
+    // ============================================
 
     /**
      * Convert Transaction to TransactionUI with category object
