@@ -15,9 +15,9 @@ export const TRANSACTION_SECTIONS: DailyTransactions[] = [
   },
   {
     date: new Date(2026, 2, 10),
-    totalAmount: 4500.00,
+    totalAmount: 3000.00,
     transactions: [
-      { id: 5, category: CATEGORIES.salary, amount: 4500.00, date: new Date(2026, 2, 10), note: 'Monthly salary', labels: ['Income'] },
+      { id: 5, category: CATEGORIES.salary, amount: 3000.00, date: new Date(2026, 2, 10), note: 'Monthly salary', labels: ['Income'] },
     ],
   },
   {
@@ -43,9 +43,9 @@ export const TRANSACTION_SECTIONS: DailyTransactions[] = [
   },
   {
     date: new Date(2026, 1, 20),
-    totalAmount: 4500.00,
+    totalAmount: 3000.00,
     transactions: [
-      { id: 13, category: CATEGORIES.salary, amount: 4500.00, date: new Date(2026, 1, 20), note: 'Monthly salary', labels: ['Income'] },
+      { id: 13, category: CATEGORIES.salary, amount: 3000.00, date: new Date(2026, 1, 20), note: 'Monthly salary', labels: ['Income'] },
     ],
   },
   {
@@ -79,9 +79,9 @@ export const TRANSACTION_SECTIONS: DailyTransactions[] = [
   },
   {
     date: new Date(2026, 0, 20),
-    totalAmount: 4500.00,
+    totalAmount: 3000.00,
     transactions: [
-      { id: 23, category: CATEGORIES.salary, amount: 4500.00, date: new Date(2026, 0, 20), note: 'Monthly salary', labels: ['Income'] },
+      { id: 23, category: CATEGORIES.salary, amount: 3000.00, date: new Date(2026, 0, 20), note: 'Monthly salary', labels: ['Income'] },
     ],
   },
   {
@@ -117,9 +117,9 @@ export const TRANSACTION_SECTIONS: DailyTransactions[] = [
   },
   {
     date: new Date(2025, 11, 20),
-    totalAmount: 4500.00,
+    totalAmount: 3000.00,
     transactions: [
-      { id: 35, category: CATEGORIES.salary, amount: 4500.00, date: new Date(2025, 11, 20), note: 'Monthly salary', labels: ['Income'] },
+      { id: 35, category: CATEGORIES.salary, amount: 3000.00, date: new Date(2025, 11, 20), note: 'Monthly salary', labels: ['Income'] },
     ],
   },
   {
@@ -155,9 +155,9 @@ export const TRANSACTION_SECTIONS: DailyTransactions[] = [
   },
   {
     date: new Date(2025, 10, 20),
-    totalAmount: 4500.00,
+    totalAmount: 3000.00,
     transactions: [
-      { id: 47, category: CATEGORIES.salary, amount: 4500.00, date: new Date(2025, 10, 20), note: 'Monthly salary', labels: ['Income'] },
+      { id: 47, category: CATEGORIES.salary, amount: 3000.00, date: new Date(2025, 10, 20), note: 'Monthly salary', labels: ['Income'] },
     ],
   },
   {
@@ -177,6 +177,92 @@ export const TRANSACTION_SECTIONS: DailyTransactions[] = [
       { id: 52, category: CATEGORIES.shopping, amount: -72.00, date: new Date(2025, 10, 8), labels: ['Shopping'] },
       { id: 53, category: CATEGORIES.groceries, amount: -60.00, date: new Date(2025, 10, 8), labels: ['Food'] },
       { id: 54, category: CATEGORIES.personalCare, amount: -36.00, date: new Date(2025, 10, 8), labels: ['Wellness'] },
+    ],
+  },
+
+  // October 2025
+  {
+    date: new Date(2025, 9, 25),
+    totalAmount: -234.60,
+    transactions: [
+      { id: 55, category: CATEGORIES.dining, amount: -85.00, date: new Date(2025, 9, 25), labels: ['Restaurant'] },
+      { id: 56, category: CATEGORIES.shopping, amount: -78.50, date: new Date(2025, 9, 25), labels: ['Shopping'] },
+      { id: 57, category: CATEGORIES.entertainment, amount: -55.10, date: new Date(2025, 9, 25), labels: ['Entertainment'] },
+      { id: 58, category: CATEGORIES.transport, amount: -16.00, date: new Date(2025, 9, 25), labels: ['Commute'] },
+    ],
+  },
+  {
+    date: new Date(2025, 9, 20),
+    totalAmount: 3000.00,
+    transactions: [
+      { id: 59, category: CATEGORIES.salary, amount: 3000.00, date: new Date(2025, 9, 20), note: 'Monthly salary', labels: ['Income'] },
+    ],
+  },
+  {
+    date: new Date(2025, 9, 15),
+    totalAmount: -189.40,
+    transactions: [
+      { id: 60, category: CATEGORIES.groceries, amount: -65.00, date: new Date(2025, 9, 15), labels: ['Food'] },
+      { id: 61, category: CATEGORIES.health, amount: -55.00, date: new Date(2025, 9, 15), labels: ['Medical'] },
+      { id: 62, category: CATEGORIES.gym, amount: -60.00, date: new Date(2025, 9, 15), labels: ['Fitness'] },
+      { id: 63, category: CATEGORIES.personalCare, amount: -9.40, date: new Date(2025, 9, 15), labels: ['Wellness'] },
+    ],
+  },
+  {
+    date: new Date(2025, 9, 10),
+    totalAmount: -143.50,
+    transactions: [
+      { id: 64, category: CATEGORIES.shopping, amount: -68.50, date: new Date(2025, 9, 10), labels: ['Shopping'] },
+      { id: 65, category: CATEGORIES.dining, amount: -55.00, date: new Date(2025, 9, 10), labels: ['Restaurant'] },
+      { id: 66, category: CATEGORIES.utilities, amount: -20.00, date: new Date(2025, 9, 10), labels: ['Bills'] },
+    ],
+  },
+
+  // September 2025
+  {
+    date: new Date(2025, 8, 28),
+    totalAmount: -301.75,
+    transactions: [
+      { id: 67, category: CATEGORIES.shopping, amount: -105.00, date: new Date(2025, 8, 28), labels: ['Shopping'] },
+      { id: 68, category: CATEGORIES.groceries, amount: -82.50, date: new Date(2025, 8, 28), labels: ['Food'] },
+      { id: 69, category: CATEGORIES.dining, amount: -68.25, date: new Date(2025, 8, 28), labels: ['Restaurant'] },
+      { id: 70, category: CATEGORIES.entertainment, amount: -46.00, date: new Date(2025, 8, 28), labels: ['Entertainment'] },
+    ],
+  },
+  {
+    date: new Date(2025, 8, 22),
+    totalAmount: -156.30,
+    transactions: [
+      { id: 71, category: CATEGORIES.health, amount: -75.00, date: new Date(2025, 8, 22), labels: ['Medical'] },
+      { id: 72, category: CATEGORIES.transport, amount: -48.30, date: new Date(2025, 8, 22), labels: ['Commute'] },
+      { id: 73, category: CATEGORIES.personalCare, amount: -33.00, date: new Date(2025, 8, 22), labels: ['Wellness'] },
+    ],
+  },
+  {
+    date: new Date(2025, 8, 20),
+    totalAmount: 3000.00,
+    transactions: [
+      { id: 74, category: CATEGORIES.salary, amount: 3000.00, date: new Date(2025, 8, 20), note: 'Monthly salary', labels: ['Income'] },
+    ],
+  },
+  {
+    date: new Date(2025, 8, 15),
+    totalAmount: -218.50,
+    transactions: [
+      { id: 75, category: CATEGORIES.gym, amount: -60.00, date: new Date(2025, 8, 15), labels: ['Fitness'] },
+      { id: 76, category: CATEGORIES.shopping, amount: -85.00, date: new Date(2025, 8, 15), labels: ['Shopping'] },
+      { id: 77, category: CATEGORIES.groceries, amount: -55.00, date: new Date(2025, 8, 15), labels: ['Food'] },
+      { id: 78, category: CATEGORIES.dining, amount: -18.50, date: new Date(2025, 8, 15), labels: ['Restaurant'] },
+    ],
+  },
+  {
+    date: new Date(2025, 8, 8),
+    totalAmount: -172.80,
+    transactions: [
+      { id: 79, category: CATEGORIES.entertainment, amount: -62.00, date: new Date(2025, 8, 8), labels: ['Entertainment'] },
+      { id: 80, category: CATEGORIES.transport, amount: -50.80, date: new Date(2025, 8, 8), labels: ['Commute'] },
+      { id: 81, category: CATEGORIES.utilities, amount: -40.00, date: new Date(2025, 8, 8), labels: ['Bills'] },
+      { id: 82, category: CATEGORIES.health, amount: -20.00, date: new Date(2025, 8, 8), labels: ['Medical'] },
     ],
   },
 ];

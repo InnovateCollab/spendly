@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Platform, ScrollView, StyleSheet, View, PanResponder, GestureResponderEvent, PanResponderGestureState } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/ui/themed-text';
@@ -21,12 +21,68 @@ export default function TimelineScreen() {
   const { transactions: rawTransactions, loadTransactions } = useTransactionLoader();
   const { refreshTrigger } = useDatabaseRefresh();
 
+  const [allTransactions, setAllTransactions] = useState<TransactionUI[]>([]);
   const [transactions, setTransactions] = useState<DailyTransactions[]>([]);
   const [totalCashFlow, setTotalCashFlow] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<TransactionUI | undefined>(undefined);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Group transactions by date
+  // Refs to store latest state values for use in event handlers
+  const currentMonthRef = useRef(currentMonth);
+  useEffect(() => {
+    currentMonthRef.current = currentMonth;
+  }, [currentMonth]);
+
+  const allTransactionsRef = useRef(allTransactions);
+  useEffect(() => {
+    allTransactionsRef.current = allTransactions;
+  }, [allTransactions]);
+
+  // Filter transactions for a specific month
+  const filterTransactionsByMonth = useCallback((txs: TransactionUI[], month: Date): TransactionUI[] => {
+    return txs.filter(tx =>
+      tx.date.getFullYear() === month.getFullYear() &&
+      tx.date.getMonth() === month.getMonth()
+    );
+  }, []);
+
+  // Handle swipe gestures - memoized with dependencies
+  const handleSwipe = useCallback((
+    evt: GestureResponderEvent,
+    gestureState: PanResponderGestureState
+  ) => {
+    const { dx } = gestureState;
+    const SWIPE_THRESHOLD = 50;
+
+    if (dx > SWIPE_THRESHOLD) {
+      // Swiped right - go to previous month
+      const newMonth = new Date(currentMonthRef.current.getFullYear(), currentMonthRef.current.getMonth() - 1, 1);
+      const hasTransactions = allTransactionsRef.current.some(tx =>
+        tx.date.getFullYear() === newMonth.getFullYear() &&
+        tx.date.getMonth() === newMonth.getMonth()
+      );
+      if (hasTransactions) {
+        setCurrentMonth(newMonth);
+      }
+    } else if (dx < -SWIPE_THRESHOLD) {
+      // Swiped left - go to next month
+      const newMonth = new Date(currentMonthRef.current.getFullYear(), currentMonthRef.current.getMonth() + 1, 1);
+      const hasTransactions = allTransactionsRef.current.some(tx =>
+        tx.date.getFullYear() === newMonth.getFullYear() &&
+        tx.date.getMonth() === newMonth.getMonth()
+      );
+      if (hasTransactions) {
+        setCurrentMonth(newMonth);
+      }
+    }
+  }, []);
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderRelease: handleSwipe,
+  })).current;
   const groupTransactionsByDate = useCallback((txs: TransactionUI[]): DailyTransactions[] => {
     const groups = new Map<string, TransactionUI[]>();
 
@@ -47,13 +103,15 @@ export default function TimelineScreen() {
       }));
   }, []);
 
-  // Update local state when transactions load
+  // Update transactions when rawTransactions or currentMonth changes
   useEffect(() => {
-    const grouped = groupTransactionsByDate(rawTransactions);
+    setAllTransactions(rawTransactions);
+    const monthTransactions = filterTransactionsByMonth(rawTransactions, currentMonth);
+    const grouped = groupTransactionsByDate(monthTransactions);
     setTransactions(grouped);
-    const total = rawTransactions.reduce((sum, t) => sum + t.amount, 0);
+    const total = monthTransactions.reduce((sum, t) => sum + t.amount, 0);
     setTotalCashFlow(total);
-  }, [rawTransactions, groupTransactionsByDate]);
+  }, [rawTransactions, currentMonth, filterTransactionsByMonth, groupTransactionsByDate]);
 
   const handleEditTransaction = (transaction: TransactionUI) => {
     setEditingTransaction(transaction);
@@ -87,30 +145,44 @@ export default function TimelineScreen() {
 
   return (
     <>
-      <ScrollView
-        style={[styles.scrollView, { backgroundColor: theme.background }]}
-        contentInset={insets}
-        contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
-      >
-        <ThemedView style={styles.container}>
-          <ThemedView style={styles.header}>
-            <AmountDisplay amount={totalCashFlow} type="currency" />
-            <View style={styles.headerLabel}>
-              <ThemedText style={styles.centerText} themeColor="textSecondary">
-                Cash Flow
+      <View style={styles.gestureContainer} {...panResponder.panHandlers}>
+        <ScrollView
+          style={[styles.scrollView, { backgroundColor: theme.background }]}
+          contentInset={insets}
+          contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}
+          scrollEnabled={true}
+        >
+          <ThemedView style={styles.container}>
+            <ThemedView style={styles.header}>
+              <ThemedText style={styles.monthHeader}>
+                {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </ThemedText>
-            </View>
-          </ThemedView>
+              <AmountDisplay amount={totalCashFlow} type="currency" />
+              <View style={styles.headerLabel}>
+                <ThemedText style={styles.centerText} themeColor="textSecondary">
+                  Cash Flow
+                </ThemedText>
+              </View>
+            </ThemedView>
 
-          <ThemedView style={styles.sectionsWrapper}>
-            {transactions.map((section, idx) => (
-              <TransactionSection key={idx} section={section} onEdit={handleEditTransaction} />
-            ))}
-          </ThemedView>
+            <ThemedView style={styles.sectionsWrapper}>
+              {transactions.length > 0 ? (
+                transactions.map((section, idx) => (
+                  <TransactionSection key={idx} section={section} onEdit={handleEditTransaction} />
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <ThemedText style={styles.emptyStateText} themeColor="textSecondary">
+                    No transactions for {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                  </ThemedText>
+                </View>
+              )}
+            </ThemedView>
 
-          {Platform.OS === 'web' && <WebBadge />}
-        </ThemedView>
-      </ScrollView>
+            {Platform.OS === 'web' && <WebBadge />}
+          </ThemedView>
+        </ScrollView>
+      </View>
 
       <AddTransactionModal
         visible={isModalVisible}
@@ -123,6 +195,9 @@ export default function TimelineScreen() {
 }
 
 const styles = StyleSheet.create({
+  gestureContainer: {
+    flex: 1,
+  },
   scrollView: {
     flex: 1,
   },
@@ -150,9 +225,23 @@ const styles = StyleSheet.create({
   centerText: {
     textAlign: 'center',
   },
+  monthHeader: {
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   sectionsWrapper: {
     gap: 0,
     paddingHorizontal: Spacing.four,
     paddingTop: Spacing.one,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.four * 2,
+  },
+  emptyStateText: {
+    textAlign: 'center',
+    fontSize: 16,
   },
 });

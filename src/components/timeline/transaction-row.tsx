@@ -8,7 +8,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/ui/themed-text';
 import { useTheme } from '@/hooks/use-theme';
 import { TransactionUI } from '@/schemas/transaction';
-import { formatTransactionAmount } from '@/utils/formatting';
 import { Spacing } from '@/constants/theme';
 import { COLORS } from '@/constants/colors';
 import { AmountDisplay } from '@/components/common/amount-display';
