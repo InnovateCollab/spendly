@@ -59,25 +59,23 @@ export function ImportOptionsModal({
                         </TouchableOpacity>
 
                         <TouchableOpacity
-                            disabled={true}
                             onPress={onPickFile}
                             style={{
-                                backgroundColor: '#E0E0E0',
+                                backgroundColor: '#4ECDC4',
                                 paddingVertical: 12,
                                 paddingHorizontal: 16,
                                 borderRadius: 8,
                                 alignItems: 'center',
-                                opacity: 0.6,
                             }}
                         >
                             <Text
                                 style={{
-                                    color: '#999',
+                                    color: '#fff',
                                     fontWeight: '600',
                                     fontSize: 14,
                                 }}
                             >
-                                Pick File from Storage (Coming Soon...)
+                                📂 Pick File from Storage
                             </Text>
                         </TouchableOpacity>
                     </View>

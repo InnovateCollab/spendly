@@ -7,23 +7,19 @@ import { useState, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { database } from '@/database';
 import { Category } from '@/schemas/category';
+import { Transaction } from '@/schemas/transaction';
+import { getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
 
 /**
- * Parsed CSV transaction - intermediate format before database insertion
- * Aligns with Transaction schema fields
+ * Type alias for transaction data during import
+ * Uses Transaction schema without the auto-generated id
  */
-export interface CSVTransactionData {
-    date: Date;
-    amount: number;
-    categoryId: number;
-    note?: string;
-    labels?: string[];
-}
+export type ImportTransactionData = Omit<Transaction, 'id'>;
 
 /**
- * Invalid CSV transaction row with validation error details
+ * Invalid import transaction row with validation error details
  */
-export interface InvalidCSVRow {
+export interface InvalidImportRow {
     rowIndex: number;
     date?: string;
     amount?: string;
@@ -36,8 +32,8 @@ export interface InvalidCSVRow {
  * Import result containing valid and invalid transactions
  */
 export interface ImportResult {
-    valid: CSVTransactionData[];
-    invalid: InvalidCSVRow[];
+    valid: ImportTransactionData[];
+    invalid: InvalidImportRow[];
 }
 
 /**
@@ -85,8 +81,8 @@ function findCategoryId(normalizedTag: string, categories: Category[]): number |
 }
 
 export function useCSVImport() {
-    const [importedData, setImportedData] = useState<CSVTransactionData[]>([]);
-    const [invalidRows, setInvalidRows] = useState<InvalidCSVRow[]>([]);
+    const [importedData, setImportedData] = useState<ImportTransactionData[]>([]);
+    const [invalidRows, setInvalidRows] = useState<InvalidImportRow[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
 
     // Load categories from database on mount
@@ -127,8 +123,8 @@ export function useCSVImport() {
                 return { valid: [], invalid: [] };
             }
 
-            const valid: CSVTransactionData[] = [];
-            const invalid: InvalidCSVRow[] = [];
+            const valid: ImportTransactionData[] = [];
+            const invalid: InvalidImportRow[] = [];
 
             lines.slice(1).forEach((line: string, lineIndex: number) => {
                 const cols = line.split(',').map((c: string) => c.trim());
@@ -196,10 +192,37 @@ export function useCSVImport() {
         setInvalidRows([]);
     }, []);
 
+    const importFromFile = useCallback(
+        async (fileUri: string): Promise<ImportTransactionData[]> => {
+            try {
+                const fileInfo = await getInfoAsync(fileUri);
+
+                if (!fileInfo.exists) {
+                    Alert.alert('Error', 'File not found at the specified location.');
+                    return [];
+                }
+
+                const fileContent = await readAsStringAsync(fileUri, { encoding: 'utf8' });
+                const parseResult = parseCSV(fileContent);
+
+                setImportedData(parseResult.valid);
+                setInvalidRows(parseResult.invalid);
+
+                return parseResult.valid;
+            } catch (error: any) {
+                const errorMessage = error.message || String(error).substring(0, 100);
+                Alert.alert('Error', `Failed to read file: ${errorMessage}`);
+                return [];
+            }
+        },
+        [parseCSV]
+    );
+
     return {
         importedData,
         invalidRows,
         importFromText,
+        importFromFile,
         clearImportedData,
     };
 }

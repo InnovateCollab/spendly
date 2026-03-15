@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { database } from '@/database';
-import { CSVTransactionData, InvalidCSVRow } from '@/hooks/use-csv-import';
+import { ImportTransactionData, InvalidImportRow } from '@/hooks/use-csv-import';
 import { Category } from '@/schemas/category';
 
 interface ImportPreviewModalProps {
     visible: boolean;
-    importedData: CSVTransactionData[];
-    invalidRows?: InvalidCSVRow[];
+    importedData: ImportTransactionData[];
+    invalidRows?: InvalidImportRow[];
     onClose: () => void;
     onConfirm: () => void;
 }
