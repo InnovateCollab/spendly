@@ -4,7 +4,7 @@
  */
 
 import { database } from '@/database';
-import { CSVTransactionData } from '@/hooks/use-csv-import';
+import { ImportTransactionData } from '@/hooks/use-csv-import';
 
 export interface ImportResult {
     successCount: number;
@@ -12,12 +12,12 @@ export interface ImportResult {
 }
 
 /**
- * Imports parsed CSV transactions to the database
- * @param transactions - Array of parsed transactions from CSV (CSVTransactionData)
+ * Imports parsed transactions to the database
+ * @param transactions - Array of parsed transactions from any source
  * @returns Object with successCount and failureCount
  */
 export async function importTransactionsToDatabase(
-    transactions: CSVTransactionData[]
+    transactions: ImportTransactionData[]
 ): Promise<ImportResult> {
     let successCount = 0;
     let failureCount = 0;
