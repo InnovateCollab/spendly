@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Text, TouchableOpacity, Alert } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { database } from '@/database';
 import { CATEGORIES } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
@@ -16,7 +17,8 @@ export function DevMenu() {
     const [stats, setStats] = useState({ transactions: 0, categories: 0 });
     const [showImportPreview, setShowImportPreview] = useState(false);
     const [showImportOptions, setShowImportOptions] = useState(false);
-    const { importedData, invalidRows, importFromText, clearImportedData } = useCSVImport();
+    const [isLoadingFile, setIsLoadingFile] = useState(false);
+    const { importedData, invalidRows, importFromText, importFromFile, clearImportedData } = useCSVImport();
     const { triggerRefresh } = useDatabaseRefresh();
 
     useEffect(() => {
@@ -160,10 +162,50 @@ export function DevMenu() {
     }
 
     async function handlePickCSVFile() {
-        // TODO: Implement file picker when ready
-        // For now, showing placeholder
-        Alert.alert('Coming Soon', 'File picker implementation deferred.');
+        try {
+            setShowImportOptions(false);
+            setIsLoadingFile(true);
+
+            const result = await DocumentPicker.getDocumentAsync({
+                type: '*/*',
+                copyToCacheDirectory: false,
+            });
+
+            if (result.canceled) {
+                setIsLoadingFile(false);
+                setShowImportOptions(true);
+                return;
+            }
+
+            if (!result.assets || result.assets.length === 0) {
+                setIsLoadingFile(false);
+                setShowImportOptions(true);
+                return;
+            }
+
+            const file = result.assets[0];
+            const importedTransactions = await importFromFile(file.uri);
+            setIsLoadingFile(false);
+
+            if (importedTransactions && importedTransactions.length > 0) {
+                setShowImportPreview(true);
+            } else {
+                Alert.alert('No Valid Data', 'The file was parsed but no valid transactions found.');
+                setShowImportOptions(true);
+            }
+        } catch (error: any) {
+            setIsLoadingFile(false);
+
+            if (error.name === 'PickerCanceledError' || error.message === 'User cancelled document picker') {
+                setShowImportOptions(true);
+            } else {
+                Alert.alert('Error', `${error.message || String(error).substring(0, 100)}`);
+                setShowImportOptions(true);
+            }
+        }
     }
+
+
 
     return (
         <>

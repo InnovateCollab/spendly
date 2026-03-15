@@ -8,6 +8,7 @@ import { Alert } from 'react-native';
 import { database } from '@/database';
 import { Category } from '@/schemas/category';
 import { Transaction } from '@/schemas/transaction';
+import { getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
 
 /**
  * Type alias for transaction data during import
@@ -191,10 +192,37 @@ export function useCSVImport() {
         setInvalidRows([]);
     }, []);
 
+    const importFromFile = useCallback(
+        async (fileUri: string): Promise<ImportTransactionData[]> => {
+            try {
+                const fileInfo = await getInfoAsync(fileUri);
+
+                if (!fileInfo.exists) {
+                    Alert.alert('Error', 'File not found at the specified location.');
+                    return [];
+                }
+
+                const fileContent = await readAsStringAsync(fileUri, { encoding: 'utf8' });
+                const parseResult = parseCSV(fileContent);
+
+                setImportedData(parseResult.valid);
+                setInvalidRows(parseResult.invalid);
+
+                return parseResult.valid;
+            } catch (error: any) {
+                const errorMessage = error.message || String(error).substring(0, 100);
+                Alert.alert('Error', `Failed to read file: ${errorMessage}`);
+                return [];
+            }
+        },
+        [parseCSV]
+    );
+
     return {
         importedData,
         invalidRows,
         importFromText,
+        importFromFile,
         clearImportedData,
     };
 }
