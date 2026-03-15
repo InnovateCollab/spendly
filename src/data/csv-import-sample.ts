@@ -1,3 +1,4 @@
+export const SAMPLE_CSV = `
 Date,Time,Transaction Details,Other Transaction Details (UPI ID or A/c No),Your Account,Amount,UPI Ref No.,Order ID,Remarks,Tags,Comment
 31/12/2025,22:56:47,Paid to Meesho,paytm-17731298@ptybl on Paytm,Axis Bank - 48,-96.00,536527257257,,UPI Intent,#?? Shopping,
 14/12/2025,12:10:56,Paid to Amman Stores Fruit and Vegitable,paytm.s1h8djf@pty on Paytm,Axis Bank - 48,-42.00,534852653080,,Milk keerai,#?? Groceries,
@@ -14,3 +15,7 @@ Date,Time,Transaction Details,Other Transaction Details (UPI ID or A/c No),Your 
 04/12/2025,16:04:44,Paid to Latha K,q308489988@ybl on PhonePe,Axis Bank - 48,-28.00,533859223245,,Boost milk,#?? Groceries,
 03/12/2025,09:21:06,Bill Payment for Tamil Nadu Power (TNPDCL)  092452401817,paytm-ptmbbp@ptybl on Paytm,Axis Bank - 48,-376.00,533707347529,26292426697,,#?? Bill Payments,
 03/12/2025,08:59:00,Money sent to Goshala Foods,goshalafoods2024@okhdfcbank on Google Pay,Axis Bank - 48,"-1,050.00",533757300745,,,#?? Money Transfer,
+02/12/2025,19:40:44,Paid to Daily Spencers,q308489988@ybl on PhonePe,Axis Bank - 48,-100.00,533632643895,,Rice,#?? Groceries,
+01/12/2025,19:44:28,Paid to Latha K,q308489988@ybl on PhonePe,Axis Bank - 48,-35.00,533652653080,,Flour,#?? Groceries,
+01/12/2025,19:40:44,Paid to Dmart,q308489988@ybl on PhonePe,Axis Bank - 48,-125.00,533632643895,,Rice,#?? Groceries,
+`;

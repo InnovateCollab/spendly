@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Platform } from 'react-native';
 import { database } from '@/database';
 import { CATEGORIES } from '@/constants/categories';
-import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
 
 interface UseInitializeAppReturn {
     isInitialized: boolean;

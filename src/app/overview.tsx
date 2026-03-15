@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { useLayoutInsets } from '@/hooks/use-layout-insets';
 import { useTransactionLoader } from '@/hooks/use-transaction-loader';
 import { useDatabaseRefresh } from '@/contexts/database-context';
-import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
 import { CategoryType } from '@/schemas';
 
 const MONTHS = [

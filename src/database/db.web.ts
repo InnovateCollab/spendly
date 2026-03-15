@@ -4,7 +4,7 @@
  * Uses data from TRANSACTION_SECTIONS
  */
 
-import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
 import { Transaction, TransactionUI, DailyTransactions } from '@/schemas/transaction';
 
 class MockDatabase {

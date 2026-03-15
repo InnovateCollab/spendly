@@ -11,6 +11,7 @@ import { DATABASE_SCHEMA } from './schema';
 import { CATEGORIES } from '@/constants/categories';
 import { Transaction, TransactionUI, DailyTransactions } from '@/schemas/transaction';
 import { Category } from '@/schemas/category';
+import { SymbolViewProps } from 'expo-symbols';
 
 const DATABASE_NAME = 'spendly.db';
 
@@ -125,7 +126,7 @@ export class Database {
             return result.lastInsertRowId;
         } catch (error) {
             // Category already exists, silently ignore
-            console.log(`Category "${category.name}" already exists`);
+            console.log(`Category "${category.name}" already exists `, error);
             return 0;
         }
     }
@@ -146,6 +147,25 @@ export class Database {
         );
 
         return rows.map(this.deserializeTransaction);
+    }
+
+    /**
+     * Get all categories from database
+     */
+    async getCategories(): Promise<Category[]> {
+        if (!this.db) throw new Error('Database not connected');
+
+        const rows = await this.db.getAllAsync<any>(
+            `SELECT id, name, icon_ios, color, type FROM categories ORDER BY name`
+        );
+
+        return rows.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            color: row.color,
+            type: row.type,
+            icon: (row.icon_ios || 'questionmark.square') as SymbolViewProps['name']
+        }));
     }
 
     /**
