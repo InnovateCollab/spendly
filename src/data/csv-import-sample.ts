@@ -1,0 +1,21 @@
+export const SAMPLE_CSV = `
+Date,Time,Transaction Details,Other Transaction Details (UPI ID or A/c No),Your Account,Amount,UPI Ref No.,Order ID,Remarks,Tags,Comment
+31/12/2025,22:56:47,Paid to Meesho,paytm-17731298@ptybl on Paytm,Axis Bank - 48,-96.00,536527257257,,UPI Intent,#?? Shopping,
+14/12/2025,12:10:56,Paid to Amman Stores Fruit and Vegitable,paytm.s1h8djf@pty on Paytm,Axis Bank - 48,-42.00,534852653080,,Milk keerai,#?? Groceries,
+14/12/2025,12:00:49,Paid to Latha K,q308489988@ybl on PhonePe,Axis Bank - 48,-90.00,534812633838,,Milk curd potato ,#?? Groceries,
+13/12/2025,17:44:04,Paid to Manikandan,paytm.s165eeq@pty on Paytm,Axis Bank - 48,-15.00,534761771577,,,#?? Taxi,
+12/12/2025,20:06:46,Paid to Madhuram Siddha Ayurvedic Shop,q468961468@ybl on PhonePe,Axis Bank - 48,-122.00,534650658690,,,#?? Medical,
+08/12/2025,20:04:26,Paid to Amman Stores Fruit and Vegitable,paytm.s1h8djf@pty on Paytm,Axis Bank - 48,-13.00,534235072361,,Soda,#?? Groceries,
+08/12/2025,19:51:34,Paid to Durai Store,yespay.bizsbiz83532@yesbankltd,Axis Bank - 48,-53.00,534205114486,,Banana,#?? Groceries,
+07/12/2025,18:35:50,Paid to Latha K,q308489988@ybl on PhonePe,Axis Bank - 48,-35.00,534103607752,,Flour,#?? Groceries,
+06/12/2025,21:23:36,Paid to Oam Industries I Pvt Ltd,oamindustriesipvtltd.42659666@hdfcbank,Axis Bank - 48,-137.00,534052505636,,,#?? Food,
+05/12/2025,15:07:06,Money sent to K Prakash,prakashjai8825@okhdfcbank on Google Pay,Axis Bank - 48,"-2,038.00",533960507650,,,#?? Money Transfer,
+04/12/2025,21:13:30,Paid to Latha K,q308489988@ybl on PhonePe,Axis Bank - 48,-65.00,533809773129,,Flour curd lays ,#?? Groceries,
+04/12/2025,16:08:42,Paid to Revathi P,ppr.05652.21092023.00196291@cnrb,Axis Bank - 48,-200.00,533879233430,,Grocery,#?? Food,
+04/12/2025,16:04:44,Paid to Latha K,q308489988@ybl on PhonePe,Axis Bank - 48,-28.00,533859223245,,Boost milk,#?? Groceries,
+03/12/2025,09:21:06,Bill Payment for Tamil Nadu Power (TNPDCL)  092452401817,paytm-ptmbbp@ptybl on Paytm,Axis Bank - 48,-376.00,533707347529,26292426697,,#?? Bill Payments,
+03/12/2025,08:59:00,Money sent to Goshala Foods,goshalafoods2024@okhdfcbank on Google Pay,Axis Bank - 48,"-1,050.00",533757300745,,,#?? Money Transfer,
+02/12/2025,19:40:44,Paid to Daily Spencers,q308489988@ybl on PhonePe,Axis Bank - 48,-100.00,533632643895,,Rice,#?? Groceries,
+01/12/2025,19:44:28,Paid to Latha K,q308489988@ybl on PhonePe,Axis Bank - 48,-35.00,533652653080,,Flour,#?? Groceries,
+01/12/2025,19:40:44,Paid to Dmart,q308489988@ybl on PhonePe,Axis Bank - 48,-125.00,533632643895,,Rice,#?? Groceries,
+`;

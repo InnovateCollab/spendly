@@ -1,13 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Modal, ScrollView, Alert } from 'react-native';
+import { Text, TouchableOpacity, Alert } from 'react-native';
 import { database } from '@/database';
 import { CATEGORIES } from '@/constants/categories';
-import { TRANSACTION_SECTIONS } from '@/data/transactions';
+import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
+import { SAMPLE_CSV } from '@/data/csv-import-sample';
 import { useDatabaseRefresh } from '@/contexts/database-context';
+import { useCSVImport } from '@/hooks/use-csv-import';
+import { importTransactionsToDatabase } from '@/services/csv-import-service';
+import { DebugMenuModal } from './debug/debug-menu-modal';
+import { ImportPreviewModal } from './debug/import-preview-modal';
+import { ImportOptionsModal } from './debug/import-options-modal';
 
 export function DevMenu() {
     const [visible, setVisible] = useState(false);
     const [stats, setStats] = useState({ transactions: 0, categories: 0 });
+    const [showImportPreview, setShowImportPreview] = useState(false);
+    const [showImportOptions, setShowImportOptions] = useState(false);
+    const { importedData, invalidRows, importFromText, clearImportedData } = useCSVImport();
     const { triggerRefresh } = useDatabaseRefresh();
 
     useEffect(() => {
@@ -108,6 +117,54 @@ export function DevMenu() {
         );
     }
 
+    async function handleImportCSV() {
+        setShowImportOptions(true);
+        setVisible(false);
+    }
+
+    async function handleLoadSampleCSV() {
+        try {
+            setShowImportOptions(false);
+
+            const success = importFromText(SAMPLE_CSV);
+            if (success) {
+                setShowImportPreview(true);
+            }
+        } catch (error: any) {
+            Alert.alert('Error', `Failed to load sample CSV: ${String(error).substring(0, 100)}`);
+        }
+    }
+
+    async function handleConfirmImport() {
+        try {
+            if (importedData.length === 0) {
+                Alert.alert('No Data', 'No transactions to import.');
+                return;
+            }
+
+            const { successCount, failureCount } = await importTransactionsToDatabase(importedData);
+
+            // Clear imported data and refresh
+            clearImportedData();
+            setShowImportPreview(false);
+            triggerRefresh();
+            updateStats();
+
+            Alert.alert(
+                'Import Complete',
+                `Imported: ${successCount} transactions${failureCount > 0 ? `, Failed: ${failureCount}` : ''}`
+            );
+        } catch (error: any) {
+            Alert.alert('Error', `Import failed: ${String(error).substring(0, 100)}`);
+        }
+    }
+
+    async function handlePickCSVFile() {
+        // TODO: Implement file picker when ready
+        // For now, showing placeholder
+        Alert.alert('Coming Soon', 'File picker implementation deferred.');
+    }
+
     return (
         <>
             {/* Floating Debug Button */}
@@ -129,106 +186,34 @@ export function DevMenu() {
             </TouchableOpacity>
 
             {/* Debug Menu Modal */}
-            <Modal
+            <DebugMenuModal
                 visible={visible}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={() => setVisible(false)}
-            >
-                <View
-                    style={{
-                        flex: 1,
-                        justifyContent: 'flex-end',
-                        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    }}
-                >
-                    <View
-                        style={{
-                            backgroundColor: '#fff',
-                            borderTopLeftRadius: 20,
-                            borderTopRightRadius: 20,
-                            paddingTop: 20,
-                            paddingHorizontal: 20,
-                            paddingBottom: 40,
-                            maxHeight: '80%',
-                        }}
-                    >
-                        <View style={{ marginBottom: 20 }}>
-                            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 10 }}>
-                                🛠️ Database Debug Menu
-                            </Text>
-                        </View>
+                stats={stats}
+                onClose={() => setVisible(false)}
+                onReset={handleReset}
+                onReseed={handleReseed}
+                onImportCSV={handleImportCSV}
+            />
 
-                        <ScrollView style={{ marginBottom: 20 }}>
-                            {/* Stats Section */}
-                            <View
-                                style={{
-                                    backgroundColor: '#F5F5F5',
-                                    borderRadius: 12,
-                                    padding: 15,
-                                    marginBottom: 20,
-                                }}
-                            >
-                                <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 8 }}>
-                                    📊 Database Stats
-                                </Text>
-                                <Text style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>
-                                    Transactions: {stats.transactions}
-                                </Text>
-                                <Text style={{ fontSize: 13, color: '#666' }}>
-                                    Categories: {stats.categories}
-                                </Text>
-                            </View>
 
-                            {/* Actions Section */}
-                            <View style={{ gap: 10 }}>
-                                <TouchableOpacity
-                                    onPress={handleReset}
-                                    style={{
-                                        backgroundColor: '#FF6B6B',
-                                        paddingVertical: 12,
-                                        paddingHorizontal: 16,
-                                        borderRadius: 8,
-                                        alignItems: 'center',
-                                    }}
-                                >
-                                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
-                                        🗑️ Reset Database
-                                    </Text>
-                                </TouchableOpacity>
+            {/* Import Modals */}
+            <ImportPreviewModal
+                visible={showImportPreview}
+                importedData={importedData}
+                invalidRows={invalidRows}
+                onClose={() => {
+                    clearImportedData();
+                    setShowImportPreview(false);
+                }}
+                onConfirm={handleConfirmImport}
+            />
 
-                                <TouchableOpacity
-                                    onPress={handleReseed}
-                                    style={{
-                                        backgroundColor: '#4ECDC4',
-                                        paddingVertical: 12,
-                                        paddingHorizontal: 16,
-                                        borderRadius: 8,
-                                        alignItems: 'center',
-                                    }}
-                                >
-                                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
-                                        🌱 Reseed Data
-                                    </Text>
-                                </TouchableOpacity>
-                            </View>
-                        </ScrollView>
-
-                        {/* Close Button */}
-                        <TouchableOpacity
-                            onPress={() => setVisible(false)}
-                            style={{
-                                backgroundColor: '#E8E8E8',
-                                paddingVertical: 12,
-                                borderRadius: 8,
-                                alignItems: 'center',
-                            }}
-                        >
-                            <Text style={{ fontWeight: '600', fontSize: 14 }}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+            <ImportOptionsModal
+                visible={showImportOptions}
+                onLoadSample={handleLoadSampleCSV}
+                onPickFile={handlePickCSVFile}
+                onClose={() => setShowImportOptions(false)}
+            />
         </>
     );
 }
