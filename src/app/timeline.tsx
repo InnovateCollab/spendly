@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { ThemedText } from '@/components/ui/themed-text';
@@ -19,7 +19,7 @@ import { AmountDisplay } from '@/components/common/amount-display';
 export default function TimelineScreen() {
   const theme = useTheme();
   const { insets, contentPlatformStyle } = useLayoutInsets();
-  const { currentMonth, setCurrentMonth, panResponder } = useMonthNavigation();
+  const { currentMonth, previousMonth, nextMonth, panResponder } = useMonthNavigation();
   const { transactions: monthTransactions, loadTransactions } = useTransactionLoader(currentMonth);
   const { refreshTrigger } = useDatabaseRefresh();
 
@@ -72,9 +72,38 @@ export default function TimelineScreen() {
         >
           <ThemedView style={styles.container}>
             <ThemedView style={styles.header}>
-              <ThemedText style={styles.monthHeader}>
-                {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </ThemedText>
+              {Platform.OS === 'web' && (
+                // Web: Month header with arrow navigation
+                <View style={styles.headerMonthSection}>
+                  <Pressable
+                    style={styles.navButton}
+                    onPress={previousMonth}
+                  >
+                    <ThemedText style={styles.navButtonText}>❮</ThemedText>
+                  </Pressable>
+
+                  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ThemedText style={styles.monthHeader}>
+                      {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </ThemedText>
+                  </View>
+
+                  <Pressable
+                    style={styles.navButton}
+                    onPress={nextMonth}
+                  >
+                    <ThemedText style={styles.navButtonText}>❯</ThemedText>
+                  </Pressable>
+                </View>
+              )}
+
+              {Platform.OS !== 'web' && (
+                // Mobile: Month header only (swipe navigation available)
+                <ThemedText style={styles.monthHeader}>
+                  {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </ThemedText>
+              )}
+
               <AmountDisplay
                 amount={totalCashFlow}
                 type="currency"
@@ -129,6 +158,22 @@ const styles = StyleSheet.create({
   container: {
     maxWidth: MaxContentWidth,
     flexGrow: 1,
+  },
+  headerMonthSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    paddingHorizontal: Spacing.four,
+    paddingTop: Spacing.three,
+    paddingBottom: Spacing.two,
+  },
+  navButton: {
+    padding: Spacing.two,
+  },
+  navButtonText: {
+    fontSize: 20,
+    fontWeight: '600',
   },
   header: {
     gap: Spacing.half,

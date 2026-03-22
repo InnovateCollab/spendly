@@ -79,12 +79,14 @@ export function useInitializeApp(): UseInitializeAppReturn {
 
         const initializeApp = async () => {
             try {
-                // Initialize database (auto-selects native or web version)
+                // Initialize database (works on all platforms: native + web)
+                await database.init();
+
+                // Auto-seed on first launch if database is empty (native only - web auto-seeds during init)
                 if (Platform.OS !== 'web') {
-                    await database.init();
-                    // Auto-seed on first launch if database is empty
                     await seedIfEmpty();
                 }
+
                 setIsInitialized(true);
                 setError(null);
             } catch (err) {
