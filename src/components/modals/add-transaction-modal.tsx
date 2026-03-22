@@ -52,6 +52,19 @@ export const AddTransactionModal = ({
         isLoading: false,
     });
 
+    // get validation error message
+    const getValidationError = () => {
+        if (!formData.selectedCategory) {
+            return 'Select a category';
+        }
+        if (!formData.amount.trim()) {
+            return 'Enter an amount';
+        }
+        return null;
+    };
+
+    const validationError = getValidationError();
+
     // Toast state
     const [toastState, setToastState] = useState({
         showToast: false,
@@ -150,36 +163,29 @@ export const AddTransactionModal = ({
     };
 
     const handleAddTransaction = async () => {
-        // Validate required fields
-        if (!formData.amount.trim()) {
-            showToastNotification('Please enter an amount');
-            return;
-        }
-
-        if (!formData.selectedCategory) {
-            showToastNotification('Please select a category');
+        // skip if validation error
+        if (validationError) {
             return;
         }
 
         setUiState(prev => ({ ...prev, isLoading: true }));
-        try {
-            // Parse amount to number
-            const parsedAmount = parseFloat(formData.amount);
-            if (isNaN(parsedAmount)) {
-                showToastNotification('Please enter a valid amount');
-                setUiState(prev => ({ ...prev, isLoading: false }));
-                return;
-            }
 
-            // Calculate final amount based on category type (negative for expenses)
-            const finalAmount =
-                formData.selectedCategory.type === 'income' ? parsedAmount : -parsedAmount;
+        try {
+            // ensures selectedCategory exists
+            const category = formData.selectedCategory!;
+
+            // parse amount to number
+            const parsedAmount = parseFloat(formData.amount);
+
+            // calculate amount based on category type (negative for expenses)
+            const amount =
+                category.type === 'income' ? parsedAmount : -parsedAmount;
 
             if (editTransaction) {
-                // Update existing transaction
+                // update existing transaction
                 await database.updateTransaction(editTransaction.id, {
-                    categoryId: formData.selectedCategory.id,
-                    amount: finalAmount,
+                    categoryId: category.id,
+                    amount: amount,
                     date: formData.selectedDate,
                     note: formData.note || undefined,
                     labels: formData.labels.length > 0 ? formData.labels : undefined,
@@ -196,19 +202,19 @@ export const AddTransactionModal = ({
                     onSuccess?.();
                 }, 1200);
             } else {
-                // Insert new transaction
+                // insert new transaction
                 await database.insertTransaction({
-                    categoryId: formData.selectedCategory.id,
-                    amount: finalAmount,
+                    categoryId: category.id,
+                    amount: amount,
                     date: formData.selectedDate,
                     note: formData.note || undefined,
                     labels: formData.labels.length > 0 ? formData.labels : undefined,
                 });
 
-                // Reset form
+                // reset form
                 resetForm();
 
-                // Show success toast
+                // show success toast
                 showToastNotification('Transaction added! ✓', 1200);
                 setTimeout(() => {
                     setUiState(prev => ({ ...prev, isLoading: false }));
@@ -217,7 +223,7 @@ export const AddTransactionModal = ({
                 }, 1200);
             }
         } catch (error) {
-            console.error('Error saving transaction:', error);
+            console.warn('Error saving transaction:', error);
             showToastNotification('Failed to save transaction');
             setUiState(prev => ({ ...prev, isLoading: false }));
         }
@@ -527,16 +533,23 @@ export const AddTransactionModal = ({
                         {/* Add Button */}
                         <View style={styles.buttonContainer}>
                             <Pressable
-                                style={({ pressed }) => [
+                                style={({ }) => [
                                     styles.addButton,
-                                    pressed && { opacity: 0.8 },
-                                    uiState.isLoading && { opacity: 0.6 },
+                                    validationError && { backgroundColor: '#9CA3AF' },
                                 ]}
                                 onPress={handleAddTransaction}
-                                disabled={uiState.isLoading}
+                                disabled={uiState.isLoading || !!validationError}
                             >
                                 <ThemedText type="small" style={styles.addButtonText}>
-                                    {uiState.isLoading ? (editTransaction ? 'Updating...' : 'Adding...') : (editTransaction ? 'Update Transaction' : 'Add Transaction')}
+                                    {validationError
+                                        ? validationError
+                                        : uiState.isLoading
+                                            ? editTransaction
+                                                ? 'Updating...'
+                                                : 'Adding...'
+                                            : editTransaction
+                                                ? 'Update Transaction'
+                                                : 'Add Transaction'}
                                 </ThemedText>
                             </Pressable>
                             <Pressable
@@ -820,7 +833,7 @@ const styles = StyleSheet.create({
     },
     toastContainer: {
         position: 'absolute',
-        bottom: 80,
+        bottom: 140,
         left: Spacing.three,
         right: Spacing.three,
         backgroundColor: '#22c55e',
