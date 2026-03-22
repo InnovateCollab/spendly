@@ -10,7 +10,7 @@ export function AddButton() {
 
     return (
         <Pressable
-            onPress={() => router.push('/add' as any)}
+            onPress={() => router.push('/transaction' as any)}
             style={({ pressed }) => pressed && styles.pressed}
         >
             <ThemedView type="backgroundElement" style={[styles.addButtonView, { backgroundColor: '#22c55e' }]}>

@@ -93,8 +93,7 @@ export function useCSVImport() {
                 const cats = await database.getCategories();
                 setCategories(cats);
             } catch (error) {
-                console.error('Failed to load categories:', error);
-                Alert.alert('Error', 'Failed to load categories from database');
+                console.warn('Failed to load categories:', error);
             }
         };
 

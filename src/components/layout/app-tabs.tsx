@@ -21,7 +21,7 @@ export default function AppTabs() {
         />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="add">
+      <NativeTabs.Trigger name="transaction">
         <NativeTabs.Trigger.Label>Add</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon
           src={require('@/assets/images/tabIcons/add-circle.png')}

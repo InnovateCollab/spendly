@@ -15,9 +15,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { ThemedText } from '@/components/ui/themed-text';
 import { ThemedView } from '@/components/ui/themed-view';
-import { Spacing } from '@/constants/theme';
+import { Spacing, MaxContentWidth } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { CATEGORIES } from '@/constants/categories';
 import { database } from '@/database';
 import type { Category, TransactionUI } from '@/schemas';
 
@@ -35,62 +34,100 @@ export const AddTransactionModal = ({
     editTransaction,
 }: AddTransactionModalProps) => {
     const theme = useTheme();
-    const [amount, setAmount] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-    const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [showDatePicker, setShowDatePicker] = useState(false);
-    const [note, setNote] = useState('');
-    const [labels, setLabels] = useState<string[]>([]);
-    const [labelInput, setLabelInput] = useState('');
-    const [showToast, setShowToast] = useState(false);
-    const [toastMessage, setToastMessage] = useState('');
-    const [toastOpacity] = useState(new Animated.Value(0));
-    const [isLoading, setIsLoading] = useState(false);
 
-    // Populate form when editing a transaction
+    // Form data state
+    const [formData, setFormData] = useState({
+        amount: '',
+        selectedCategory: null as Category | null,
+        selectedDate: new Date(),
+        note: '',
+        labels: [] as string[],
+        labelInput: '',
+    });
+
+    // UI state
+    const [uiState, setUiState] = useState({
+        showCategoryPicker: false,
+        showDatePicker: false,
+        isLoading: false,
+    });
+
+    // Toast state
+    const [toastState, setToastState] = useState({
+        showToast: false,
+        toastMessage: '',
+        toastOpacity: new Animated.Value(0),
+    });
+
+    const [categories, setCategories] = useState<Category[]>([]);
+
+    // fetch categories when modal becomes visible
     useEffect(() => {
-        if (editTransaction && visible) {
-            const category = Object.values(CATEGORIES).find(
-                (c) => c.name === editTransaction.category.name
-            );
-            setSelectedCategory(category || null);
-            setAmount(Math.abs(editTransaction.amount).toString());
-            setSelectedDate(new Date(editTransaction.date));
-            setNote(editTransaction.note || '');
-            setLabels(editTransaction.labels || []);
+        if (!visible) return;
+
+        const loadCategories = async () => {
+            try {
+                const categories = await database.getCategories();
+                setCategories(categories);
+            } catch (error) {
+                console.warn('Failed to load categories:', error);
+            }
+        };
+        loadCategories();
+    }, [visible]);
+
+    // populate form when editing a transaction
+    useEffect(() => {
+        if (visible && editTransaction) {
+            setFormData({
+                amount: Math.abs(editTransaction.amount).toString(),
+                selectedCategory: editTransaction.category,
+                selectedDate: new Date(editTransaction.date),
+                note: editTransaction.note || '',
+                labels: editTransaction.labels || [],
+                labelInput: '',
+            });
         } else if (!editTransaction && visible) {
             resetForm();
         }
-    }, [editTransaction, visible]);
+    }, [editTransaction, visible, categories]);
 
     const showToastNotification = (message: string, duration = 1500) => {
-        setToastMessage(message);
-        setShowToast(true);
+        setToastState(prev => ({
+            ...prev,
+            toastMessage: message,
+            showToast: true,
+        }));
         Animated.sequence([
-            Animated.timing(toastOpacity, {
+            Animated.timing(toastState.toastOpacity, {
                 toValue: 1,
                 duration: 300,
                 useNativeDriver: true,
             }),
             Animated.delay(duration),
-            Animated.timing(toastOpacity, {
+            Animated.timing(toastState.toastOpacity, {
                 toValue: 0,
                 duration: 300,
                 useNativeDriver: true,
             }),
-        ]).start(() => setShowToast(false));
+        ]).start(() => setToastState(prev => ({ ...prev, showToast: false })));
     };
 
     const addLabel = () => {
-        if (labelInput.trim() && !labels.includes(labelInput.trim())) {
-            setLabels([...labels, labelInput.trim()]);
-            setLabelInput('');
+        if (formData.labelInput.trim() && !formData.labels.includes(formData.labelInput.trim())) {
+            setFormData(prev => ({
+                ...prev,
+                labels: [...prev.labels, prev.labelInput.trim()],
+                labelInput: '',
+            }));
         }
     };
 
     const removeLabel = (label: string) => {
-        setLabels(labels.filter((l) => l !== label));
+        setFormData(prev => ({
+            ...prev,
+            labels: prev.labels.filter((l) => l !== label),
+        }));
     };
 
     const getDateString = (date: Date) => {
@@ -102,48 +139,50 @@ export const AddTransactionModal = ({
     };
 
     const resetForm = () => {
-        setAmount('');
-        setSelectedCategory(null);
-        setSelectedDate(new Date());
-        setNote('');
-        setLabels([]);
-        setLabelInput('');
+        setFormData({
+            amount: '',
+            selectedCategory: null,
+            selectedDate: new Date(),
+            note: '',
+            labels: [],
+            labelInput: '',
+        });
     };
 
     const handleAddTransaction = async () => {
         // Validate required fields
-        if (!amount.trim()) {
+        if (!formData.amount.trim()) {
             showToastNotification('Please enter an amount');
             return;
         }
 
-        if (!selectedCategory) {
+        if (!formData.selectedCategory) {
             showToastNotification('Please select a category');
             return;
         }
 
-        setIsLoading(true);
+        setUiState(prev => ({ ...prev, isLoading: true }));
         try {
             // Parse amount to number
-            const parsedAmount = parseFloat(amount);
+            const parsedAmount = parseFloat(formData.amount);
             if (isNaN(parsedAmount)) {
                 showToastNotification('Please enter a valid amount');
-                setIsLoading(false);
+                setUiState(prev => ({ ...prev, isLoading: false }));
                 return;
             }
 
             // Calculate final amount based on category type (negative for expenses)
             const finalAmount =
-                selectedCategory.type === 'income' ? parsedAmount : -parsedAmount;
+                formData.selectedCategory.type === 'income' ? parsedAmount : -parsedAmount;
 
             if (editTransaction) {
                 // Update existing transaction
                 await database.updateTransaction(editTransaction.id, {
-                    categoryId: selectedCategory.id,
+                    categoryId: formData.selectedCategory.id,
                     amount: finalAmount,
-                    date: selectedDate,
-                    note: note || undefined,
-                    labels: labels.length > 0 ? labels : undefined,
+                    date: formData.selectedDate,
+                    note: formData.note || undefined,
+                    labels: formData.labels.length > 0 ? formData.labels : undefined,
                 });
 
                 // Reset form
@@ -152,18 +191,18 @@ export const AddTransactionModal = ({
                 // Show success toast
                 showToastNotification('Transaction updated! ✓', 1200);
                 setTimeout(() => {
-                    setIsLoading(false);
+                    setUiState(prev => ({ ...prev, isLoading: false }));
                     onClose();
                     onSuccess?.();
                 }, 1200);
             } else {
                 // Insert new transaction
                 await database.insertTransaction({
-                    categoryId: selectedCategory.id,
+                    categoryId: formData.selectedCategory.id,
                     amount: finalAmount,
-                    date: selectedDate,
-                    note: note || undefined,
-                    labels: labels.length > 0 ? labels : undefined,
+                    date: formData.selectedDate,
+                    note: formData.note || undefined,
+                    labels: formData.labels.length > 0 ? formData.labels : undefined,
                 });
 
                 // Reset form
@@ -172,7 +211,7 @@ export const AddTransactionModal = ({
                 // Show success toast
                 showToastNotification('Transaction added! ✓', 1200);
                 setTimeout(() => {
-                    setIsLoading(false);
+                    setUiState(prev => ({ ...prev, isLoading: false }));
                     onClose();
                     onSuccess?.();
                 }, 1200);
@@ -180,14 +219,14 @@ export const AddTransactionModal = ({
         } catch (error) {
             console.error('Error saving transaction:', error);
             showToastNotification('Failed to save transaction');
-            setIsLoading(false);
+            setUiState(prev => ({ ...prev, isLoading: false }));
         }
     };
 
     const handleDeleteTransaction = async () => {
         if (!editTransaction) return;
 
-        setIsLoading(true);
+        setUiState(prev => ({ ...prev, isLoading: true }));
         try {
             await database.deleteTransaction(editTransaction.id);
 
@@ -197,14 +236,14 @@ export const AddTransactionModal = ({
             // Show success toast
             showToastNotification('Transaction deleted! ✓', 1200);
             setTimeout(() => {
-                setIsLoading(false);
+                setUiState(prev => ({ ...prev, isLoading: false }));
                 onClose();
                 onSuccess?.();
             }, 1200);
         } catch (error) {
             console.error('Error deleting transaction:', error);
             showToastNotification('Failed to delete transaction');
-            setIsLoading(false);
+            setUiState(prev => ({ ...prev, isLoading: false }));
         }
     };
 
@@ -220,332 +259,343 @@ export const AddTransactionModal = ({
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
             >
-                <ThemedView style={[styles.modalContent, { backgroundColor: theme.background }]}>
-                    {/* Header */}
-                    <View style={styles.modalHeader}>
-                        <ThemedText type="subtitle" style={styles.headerTitle}>
-                            {editTransaction ? 'Edit Transaction' : 'Add Transaction'}
-                        </ThemedText>
-                        {editTransaction ? (
-                            <Pressable
-                                onPress={handleDeleteTransaction}
-                                disabled={isLoading}
-                                style={({ pressed }) => pressed && { opacity: 0.7 }}
-                            >
-                                <SymbolView
-                                    name={{ ios: 'trash.fill', android: 'delete', web: 'delete' }}
-                                    size={24}
-                                    tintColor="#ef4444"
-                                />
-                            </Pressable>
-                        ) : (
-                            <Pressable onPress={onClose} style={({ pressed }) => pressed && { opacity: 0.7 }}>
-                                <ThemedText style={styles.closeIcon}>✕</ThemedText>
-                            </Pressable>
-                        )}
-                    </View>
-
-                    {/* Form Content */}
-                    <ScrollView
-                        style={styles.scrollContent}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.scrollContentContainer}
-                    >
-                        {/* Amount Section */}
-                        <ThemedView type="backgroundElement" style={styles.section}>
-                            <View style={styles.amountRow}>
+                <View style={styles.modalContainer}>
+                    <ThemedView style={[styles.modalContent, { backgroundColor: theme.background }]}>
+                        {/* Header */}
+                        <View style={styles.modalHeader}>
+                            <ThemedText type="subtitle" style={styles.headerTitle}>
+                                {editTransaction ? 'Edit Transaction' : 'Add Transaction'}
+                            </ThemedText>
+                            {editTransaction ? (
                                 <Pressable
-                                    onPress={() => setShowCategoryPicker(true)}
-                                    style={({ pressed }) => [
-                                        styles.categoryButton,
-                                        pressed && { opacity: 0.7 },
-                                    ]}
+                                    onPress={handleDeleteTransaction}
+                                    disabled={uiState.isLoading}
+                                    style={({ pressed }) => pressed && { opacity: 0.7 }}
                                 >
-                                    <View style={styles.categoryDisplay}>
-                                        {selectedCategory ? (
-                                            <>
-                                                <SymbolView
-                                                    name={selectedCategory.icon}
-                                                    size={28}
-                                                    tintColor={selectedCategory.color}
-                                                />
-                                                <ThemedText type="small" style={styles.categoryName}>
-                                                    {selectedCategory.name}
-                                                </ThemedText>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <SymbolView
-                                                    name={{
-                                                        ios: 'square.grid.2x2',
-                                                        android: 'dashboard',
-                                                        web: 'dashboard',
-                                                    }}
-                                                    size={32}
-                                                    tintColor="#22c55e"
-                                                />
-                                                <ThemedText type="small" style={styles.categoryPlaceholder}>
-                                                    Select Category
-                                                </ThemedText>
-                                            </>
-                                        )}
-                                    </View>
+                                    <SymbolView
+                                        name={{ ios: 'trash.fill', android: 'delete', web: 'delete' }}
+                                        size={24}
+                                        tintColor="#ef4444"
+                                    />
                                 </Pressable>
-                                <TextInput
-                                    style={[styles.amountInput, { color: theme.text }]}
-                                    placeholder="Amount"
-                                    placeholderTextColor={theme.textSecondary}
-                                    keyboardType="decimal-pad"
-                                    value={amount}
-                                    onChangeText={setAmount}
-                                    editable={!isLoading}
-                                />
-                            </View>
-                        </ThemedView>
+                            ) : (
+                                <Pressable onPress={onClose} style={({ pressed }) => pressed && { opacity: 0.7 }}>
+                                    <ThemedText style={styles.closeIcon}>✕</ThemedText>
+                                </Pressable>
+                            )}
+                        </View>
 
-                        {/* Category Picker Modal */}
-                        <Modal
-                            visible={showCategoryPicker}
-                            transparent
-                            animationType="fade"
-                            onRequestClose={() => setShowCategoryPicker(false)}
+                        {/* Form Content */}
+                        <ScrollView
+                            style={styles.scrollContent}
+                            showsVerticalScrollIndicator={false}
+                            contentContainerStyle={styles.scrollContentContainer}
                         >
-                            <View style={styles.categoryPickerOverlay}>
-                                <Pressable
-                                    style={styles.categoryPickerBackdrop}
-                                    onPress={() => setShowCategoryPicker(false)}
-                                />
-                                <View style={[styles.categoryPickerSheet, { backgroundColor: theme.background }]}>
-                                    <View style={styles.categorySheetHeader}>
-                                        <ThemedText type="subtitle">Select Category</ThemedText>
-                                        <Pressable onPress={() => setShowCategoryPicker(false)}>
-                                            <ThemedText style={styles.categoryCloseButton}>Close</ThemedText>
-                                        </Pressable>
-                                    </View>
-                                    <ScrollView
-                                        style={styles.categoryScrollView}
-                                        showsVerticalScrollIndicator={false}
-                                        contentContainerStyle={styles.categoryGridContainer}
+                            {/* Amount Section */}
+                            <ThemedView type="backgroundElement" style={styles.section}>
+                                <View style={styles.amountRow}>
+                                    <Pressable
+                                        onPress={() => setUiState(prev => ({ ...prev, showCategoryPicker: true }))}
+                                        style={({ pressed }) => [
+                                            pressed && { opacity: 0.7 },
+                                        ]}
                                     >
-                                        {Object.values(CATEGORIES).map((category) => (
-                                            <Pressable
-                                                key={category.name}
-                                                onPress={() => {
-                                                    setSelectedCategory(category);
-                                                    setShowCategoryPicker(false);
-                                                }}
-                                                style={({ pressed }) => [
-                                                    styles.categoryOption,
-                                                    pressed && { opacity: 0.7 },
-                                                ]}
-                                            >
-                                                <View
-                                                    style={[
-                                                        styles.categoryIconCircle,
-                                                        selectedCategory?.name === category.name &&
-                                                        styles.categoryIconCircleSelected,
+                                        <View style={styles.categoryDisplay}>
+                                            {formData.selectedCategory ? (
+                                                <>
+                                                    <SymbolView
+                                                        name={formData.selectedCategory.icon}
+                                                        size={28}
+                                                        tintColor={formData.selectedCategory.color}
+                                                    />
+                                                    <ThemedText type="small" style={styles.categoryName}>
+                                                        {formData.selectedCategory.name}
+                                                    </ThemedText>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <SymbolView
+                                                        name={{
+                                                            ios: 'square.grid.2x2',
+                                                            android: 'dashboard',
+                                                            web: 'dashboard',
+                                                        }}
+                                                        size={32}
+                                                        tintColor="#22c55e"
+                                                    />
+                                                    <ThemedText type="small" style={styles.categoryPlaceholder}>
+                                                        Select Category
+                                                    </ThemedText>
+                                                </>
+                                            )}
+                                        </View>
+                                    </Pressable>
+                                    <TextInput
+                                        style={[styles.amountInput, { color: theme.text }]}
+                                        placeholder="Amount"
+                                        placeholderTextColor={theme.textSecondary}
+                                        keyboardType="decimal-pad"
+                                        value={formData.amount}
+                                        onChangeText={(val) => setFormData(prev => ({ ...prev, amount: val }))}
+                                        editable={!uiState.isLoading}
+                                    />
+                                </View>
+                            </ThemedView>
+
+                            {/* Category Picker Modal */}
+                            <Modal
+                                visible={uiState.showCategoryPicker}
+                                transparent
+                                animationType="fade"
+                                onRequestClose={() => setUiState(prev => ({ ...prev, showCategoryPicker: false }))}
+                            >
+                                <View style={styles.categoryPickerOverlay}>
+                                    <Pressable
+                                        style={styles.categoryPickerBackdrop}
+                                        onPress={() => setUiState(prev => ({ ...prev, showCategoryPicker: false }))}
+                                    />
+                                    <View style={[styles.categoryPickerSheet, { backgroundColor: theme.background }]}>
+                                        <View style={styles.categorySheetHeader}>
+                                            <ThemedText type="subtitle">Select Category</ThemedText>
+                                            <Pressable onPress={() => setUiState(prev => ({ ...prev, showCategoryPicker: false }))}>
+                                                <ThemedText style={styles.categoryCloseButton}>Close</ThemedText>
+                                            </Pressable>
+                                        </View>
+                                        <ScrollView
+                                            style={styles.categoryScrollView}
+                                            showsVerticalScrollIndicator={false}
+                                            contentContainerStyle={styles.categoryGridContainer}
+                                        >
+                                            {categories.map((category) => (
+                                                <Pressable
+                                                    key={category.id}
+                                                    onPress={() => {
+                                                        setFormData(prev => ({ ...prev, selectedCategory: category }));
+                                                        setUiState(prev => ({ ...prev, showCategoryPicker: false }));
+                                                    }}
+                                                    style={({ pressed }) => [
+                                                        styles.categoryOption,
+                                                        pressed && { opacity: 0.7 },
                                                     ]}
                                                 >
-                                                    <SymbolView
-                                                        name={category.icon}
-                                                        size={32}
-                                                        tintColor={category.color}
-                                                    />
-                                                </View>
-                                                <ThemedText type="small" style={styles.categoryOptionName}>
-                                                    {category.name}
-                                                </ThemedText>
-                                            </Pressable>
-                                        ))}
-                                    </ScrollView>
+                                                    <View
+                                                        style={[
+                                                            styles.categoryIconCircle,
+                                                            formData.selectedCategory?.id === category.id &&
+                                                            styles.categoryIconCircleSelected,
+                                                        ]}
+                                                    >
+                                                        <SymbolView
+                                                            name={category.icon}
+                                                            size={32}
+                                                            tintColor={category.color}
+                                                        />
+                                                    </View>
+                                                    <ThemedText type="small" style={styles.categoryOptionName}>
+                                                        {category.name}
+                                                    </ThemedText>
+                                                </Pressable>
+                                            ))}
+                                        </ScrollView>
+                                    </View>
                                 </View>
-                            </View>
-                        </Modal>
+                            </Modal>
 
-                        {/* Date Section */}
-                        <ThemedView type="backgroundElement" style={styles.section}>
-                            <View style={styles.row}>
-                                <Pressable
-                                    onPress={() => setShowDatePicker(true)}
-                                    style={({ pressed }) => [styles.dateButton, pressed && { opacity: 0.7 }]}
-                                >
+                            {/* Date Section */}
+                            <ThemedView type="backgroundElement" style={styles.section}>
+                                <View style={styles.row}>
+                                    <Pressable
+                                        onPress={() => setUiState(prev => ({ ...prev, showDatePicker: true }))}
+                                        style={({ pressed }) => [styles.dateButton, pressed && { opacity: 0.7 }]}
+                                    >
+                                        <View style={styles.rowLeft}>
+                                            <SymbolView
+                                                name={{
+                                                    ios: 'calendar',
+                                                    android: 'calendar_today',
+                                                    web: 'calendar_today',
+                                                }}
+                                                size={24}
+                                                tintColor={theme.text}
+                                            />
+                                            <ThemedText type="small">{getDateString(formData.selectedDate)}</ThemedText>
+                                        </View>
+                                    </Pressable>
+                                </View>
+                            </ThemedView>
+
+                            {/* Date Picker */}
+                            {uiState.showDatePicker && (
+                                <DateTimePicker
+                                    value={formData.selectedDate}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, date) => {
+                                        if (Platform.OS === 'android') {
+                                            setUiState(prev => ({ ...prev, showDatePicker: false }));
+                                            if (date) {
+                                                setFormData(prev => ({ ...prev, selectedDate: date }));
+                                            }
+                                        } else if (event.type === 'set' && date) {
+                                            setFormData(prev => ({ ...prev, selectedDate: date }));
+                                            setUiState(prev => ({ ...prev, showDatePicker: false }));
+                                        } else if (event.type === 'dismissed') {
+                                            setUiState(prev => ({ ...prev, showDatePicker: false }));
+                                        }
+                                    }}
+                                />
+                            )}
+
+                            {/* Note Section */}
+                            <ThemedView type="backgroundElement" style={styles.section}>
+                                <View style={styles.rowVertical}>
                                     <View style={styles.rowLeft}>
                                         <SymbolView
-                                            name={{
-                                                ios: 'calendar',
-                                                android: 'calendar_today',
-                                                web: 'calendar_today',
-                                            }}
+                                            name={{ ios: 'pencil', android: 'edit', web: 'edit' }}
                                             size={24}
                                             tintColor={theme.text}
                                         />
-                                        <ThemedText type="small">{getDateString(selectedDate)}</ThemedText>
+                                        <ThemedText type="small">Note</ThemedText>
                                     </View>
-                                </Pressable>
-                            </View>
-                        </ThemedView>
+                                    <TextInput
+                                        style={[styles.noteInput, { color: theme.text, borderColor: theme.textSecondary }]}
+                                        placeholder="Add a note (optional)"
+                                        placeholderTextColor={theme.textSecondary}
+                                        value={formData.note}
+                                        onChangeText={(val) => setFormData(prev => ({ ...prev, note: val }))}
+                                        multiline
+                                        editable={!uiState.isLoading}
+                                    />
+                                </View>
+                            </ThemedView>
 
-                        {/* Date Picker */}
-                        {showDatePicker && (
-                            <DateTimePicker
-                                value={selectedDate}
-                                mode="date"
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={(event, date) => {
-                                    if (Platform.OS === 'android') {
-                                        setShowDatePicker(false);
-                                        if (date) {
-                                            setSelectedDate(date);
-                                        }
-                                    } else if (event.type === 'set' && date) {
-                                        setSelectedDate(date);
-                                        setShowDatePicker(false);
-                                    } else if (event.type === 'dismissed') {
-                                        setShowDatePicker(false);
-                                    }
-                                }}
-                            />
-                        )}
-
-                        {/* Note Section */}
-                        <ThemedView type="backgroundElement" style={styles.section}>
-                            <View style={styles.rowVertical}>
+                            {/* Labels Section */}
+                            <ThemedView type="backgroundElement" style={styles.section}>
                                 <View style={styles.rowLeft}>
                                     <SymbolView
-                                        name={{ ios: 'pencil', android: 'edit', web: 'edit' }}
+                                        name={{ ios: 'tag.fill', android: 'local_offer', web: 'local_offer' }}
                                         size={24}
-                                        tintColor={theme.text}
+                                        tintColor="#FBBF24"
                                     />
-                                    <ThemedText type="small">Note</ThemedText>
+                                    <ThemedText type="small">Labels</ThemedText>
                                 </View>
-                                <TextInput
-                                    style={[styles.noteInput, { color: theme.text, borderColor: theme.textSecondary }]}
-                                    placeholder="Add a note (optional)"
-                                    placeholderTextColor={theme.textSecondary}
-                                    value={note}
-                                    onChangeText={setNote}
-                                    multiline
-                                    editable={!isLoading}
-                                />
-                            </View>
-                        </ThemedView>
 
-                        {/* Labels Section */}
-                        <ThemedView type="backgroundElement" style={styles.section}>
-                            <View style={styles.rowLeft}>
-                                <SymbolView
-                                    name={{ ios: 'tag.fill', android: 'local_offer', web: 'local_offer' }}
-                                    size={24}
-                                    tintColor="#FBBF24"
-                                />
-                                <ThemedText type="small">Labels</ThemedText>
-                            </View>
-
-                            {/* Label Input */}
-                            <View style={styles.labelInputContainer}>
-                                <TextInput
-                                    style={[
-                                        styles.labelInputField,
-                                        { color: theme.text, borderColor: theme.textSecondary },
-                                    ]}
-                                    placeholder="Add a label"
-                                    placeholderTextColor={theme.textSecondary}
-                                    value={labelInput}
-                                    onChangeText={setLabelInput}
-                                    editable={!isLoading}
-                                />
-                                <Pressable
-                                    style={({ pressed }) => [styles.addLabelButton, pressed && { opacity: 0.7 }]}
-                                    onPress={addLabel}
-                                    disabled={isLoading}
-                                >
-                                    <ThemedText type="small" style={styles.addLabelText}>
-                                        Add
-                                    </ThemedText>
-                                </Pressable>
-                            </View>
-
-                            {/* Display Labels */}
-                            {labels.length > 0 && (
-                                <View style={styles.labelsDisplay}>
-                                    {labels.map((label, idx) => (
-                                        <Pressable
-                                            key={idx}
-                                            style={styles.labelTag}
-                                            onPress={() => removeLabel(label)}
-                                            disabled={isLoading}
-                                        >
-                                            <ThemedText type="small" style={styles.labelTagText}>
-                                                {label} ✕
-                                            </ThemedText>
-                                        </Pressable>
-                                    ))}
+                                {/* Label Input */}
+                                <View style={styles.labelInputContainer}>
+                                    <TextInput
+                                        style={[
+                                            styles.labelInputField,
+                                            { color: theme.text, borderColor: theme.textSecondary },
+                                        ]}
+                                        placeholder="Add a label"
+                                        placeholderTextColor={theme.textSecondary}
+                                        value={formData.labelInput}
+                                        onChangeText={(val) => setFormData(prev => ({ ...prev, labelInput: val }))}
+                                        editable={!uiState.isLoading}
+                                    />
+                                    <Pressable
+                                        style={({ pressed }) => [styles.addLabelButton, pressed && { opacity: 0.7 }]}
+                                        onPress={addLabel}
+                                        disabled={uiState.isLoading}
+                                    >
+                                        <ThemedText type="small" style={styles.addLabelText}>
+                                            Add
+                                        </ThemedText>
+                                    </Pressable>
                                 </View>
-                            )}
-                        </ThemedView>
-                    </ScrollView>
 
-                    {/* Add Button */}
-                    <View style={styles.buttonContainer}>
-                        <Pressable
-                            style={({ pressed }) => [
-                                styles.addButton,
-                                pressed && { opacity: 0.8 },
-                                isLoading && { opacity: 0.6 },
-                            ]}
-                            onPress={handleAddTransaction}
-                            disabled={isLoading}
-                        >
-                            <ThemedText type="small" style={styles.addButtonText}>
-                                {isLoading ? (editTransaction ? 'Updating...' : 'Adding...') : (editTransaction ? 'Update Transaction' : 'Add Transaction')}
-                            </ThemedText>
-                        </Pressable>
-                        <Pressable
-                            style={({ pressed }) => [
-                                styles.cancelButton,
-                                pressed && { opacity: 0.8 },
-                            ]}
-                            onPress={onClose}
-                            disabled={isLoading}
-                        >
-                            <ThemedText type="small" style={styles.cancelButtonText}>
-                                Cancel
-                            </ThemedText>
-                        </Pressable>
-                    </View>
+                                {/* Display Labels */}
+                                {formData.labels.length > 0 && (
+                                    <View style={styles.labelsDisplay}>
+                                        {formData.labels.map((label, idx) => (
+                                            <Pressable
+                                                key={idx}
+                                                style={styles.labelTag}
+                                                onPress={() => removeLabel(label)}
+                                                disabled={uiState.isLoading}
+                                            >
+                                                <ThemedText type="small" style={styles.labelTagText}>
+                                                    {label} ✕
+                                                </ThemedText>
+                                            </Pressable>
+                                        ))}
+                                    </View>
+                                )}
+                            </ThemedView>
+                        </ScrollView>
 
-                    {/* Toast Notification */}
-                    {showToast && (
-                        <Animated.View
-                            style={[
-                                styles.toastContainer,
-                                {
-                                    opacity: toastOpacity,
-                                    transform: [
-                                        {
-                                            translateY: toastOpacity.interpolate({
-                                                inputRange: [0, 1],
-                                                outputRange: [50, 0],
-                                            }),
-                                        },
-                                    ],
-                                },
-                            ]}
-                        >
-                            <ThemedText style={styles.toastText}>{toastMessage}</ThemedText>
-                        </Animated.View>
-                    )}
-                </ThemedView>
+                        {/* Add Button */}
+                        <View style={styles.buttonContainer}>
+                            <Pressable
+                                style={({ pressed }) => [
+                                    styles.addButton,
+                                    pressed && { opacity: 0.8 },
+                                    uiState.isLoading && { opacity: 0.6 },
+                                ]}
+                                onPress={handleAddTransaction}
+                                disabled={uiState.isLoading}
+                            >
+                                <ThemedText type="small" style={styles.addButtonText}>
+                                    {uiState.isLoading ? (editTransaction ? 'Updating...' : 'Adding...') : (editTransaction ? 'Update Transaction' : 'Add Transaction')}
+                                </ThemedText>
+                            </Pressable>
+                            <Pressable
+                                style={({ pressed }) => [
+                                    styles.cancelButton,
+                                    pressed && { opacity: 0.8 },
+                                ]}
+                                onPress={onClose}
+                                disabled={uiState.isLoading}
+                            >
+                                <ThemedText type="small" style={styles.cancelButtonText}>
+                                    Cancel
+                                </ThemedText>
+                            </Pressable>
+                        </View>
+
+                        {/* Toast Notification */}
+                        {toastState.showToast && (
+                            <Animated.View
+                                style={[
+                                    styles.toastContainer,
+                                    {
+                                        opacity: toastState.toastOpacity,
+                                        transform: [
+                                            {
+                                                translateY: toastState.toastOpacity.interpolate({
+                                                    inputRange: [0, 1],
+                                                    outputRange: [50, 0],
+                                                }),
+                                            },
+                                        ],
+                                    },
+                                ]}
+                            >
+                                <ThemedText style={styles.toastText}>{toastState.toastMessage}</ThemedText>
+                            </Animated.View>
+                        )}
+                    </ThemedView>
+                </View>
             </KeyboardAvoidingView>
         </Modal>
     );
 };
 
 const styles = StyleSheet.create({
+    modalContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        ...(Platform.OS === 'web' && { backgroundColor: 'rgba(0, 0, 0, 0.5)' }),
+    },
     modalContent: {
         flex: 1,
         paddingTop: Spacing.two,
         paddingHorizontal: Spacing.four,
+        ...(Platform.OS === 'web' && {
+            maxWidth: MaxContentWidth,
+            width: '100%',
+        }),
     },
     modalHeader: {
         flexDirection: 'row',
@@ -665,7 +715,7 @@ const styles = StyleSheet.create({
     },
     categoryName: {
         fontWeight: '600',
-        fontSize: 12,
+        fontSize: 14,
     },
     categoryPlaceholder: {
         fontSize: 12,

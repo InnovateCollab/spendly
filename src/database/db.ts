@@ -48,7 +48,6 @@ export class Database {
             console.log('✓ Database connection opened');
 
             await this.createTables();
-            console.log('✓ Database tables created');
 
             this.isInitialized = true;
             console.log('✓ Database initialized successfully');
@@ -69,6 +68,7 @@ export class Database {
         for (const statement of statements) {
             await this.db.execAsync(statement);
         }
+        console.log('✓ Database tables created');
     }
 
     async close() {
@@ -156,7 +156,7 @@ export class Database {
         if (!this.db) throw new Error('Database not connected');
 
         const rows = await this.db.getAllAsync<any>(
-            `SELECT id, name, icon_ios, color, type FROM categories ORDER BY name`
+            `SELECT id, name, icon_ios, icon_android, icon_web, color, type FROM categories ORDER BY name`
         );
 
         return rows.map((row: any) => ({
@@ -164,7 +164,11 @@ export class Database {
             name: row.name,
             color: row.color,
             type: row.type,
-            icon: (row.icon_ios || 'questionmark.square') as SymbolViewProps['name']
+            icon: {
+                ios: row.icon_ios || 'questionmark.square',
+                android: row.icon_android || 'help',
+                web: row.icon_web || 'help'
+            } as SymbolViewProps['name']
         }));
     }
 
