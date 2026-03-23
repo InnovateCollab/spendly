@@ -184,13 +184,14 @@ export function DevMenu() {
             }
 
             const file = result.assets[0];
-            const importedTransactions = await importFromFile(file.uri);
+            const parseResult = await importFromFile(file.uri);
             setIsLoadingFile(false);
 
-            if (importedTransactions && importedTransactions.length > 0) {
+            // show preview if there are valid transactions OR invalid rows to display
+            if ((parseResult.valid && parseResult.valid.length > 0) || parseResult.invalid.length > 0) {
                 setShowImportPreview(true);
             } else {
-                Alert.alert('No Valid Data', 'The file was parsed but no valid transactions found.');
+                Alert.alert('No Data', 'The file could not be parsed.');
                 setShowImportOptions(true);
             }
         } catch (error: any) {

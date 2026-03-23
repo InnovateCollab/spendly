@@ -80,43 +80,7 @@ During development, use the **Debug Menu** to manage test data directly in the a
    - **🗑️ Reset Database** — Clear all data (keeps structure)
    - **🌱 Reseed Data** — Clear all data and reload test data
 
-### How Page Refresh Works
-
-When you use the Debug Menu to reset or reseed the database, the app automatically refreshes the Timeline and Overview pages **without requiring navigation**:
-
-- **Architecture:** `devMenu.tsx` → calls `triggerRefresh()` → `DatabaseContext` broadcasts change → Timeline/Overview hooks detect refresh trigger → Pages auto-reload data
-- **Result:** Data updates in place, pages stay visible, modal closes automatically
-- **No reload flashing:** Pages update smoothly within the same navigation context
-
-This is implemented via `DatabaseContext` (in `src/contexts/`), which provides a lightweight notification system for database changes. Development-only feature.
-
-### Development Workflows
-
-**Fresh Start:**
-
-```bash
-npm start
-# Tap 🛠️ → Reseed Data → Fresh test data loaded
-```
-
-**Clean Test Session:**
-
-```bash
-npm start
-# Tap 🛠️ → Reset Database → All data cleared
-# Tap 🛠️ → Reseed Data → Fresh test data
-```
-
-**Just Delete & Restart (Nuclear Option):**
-
-```bash
-# Stop app (Ctrl+C)
-# Delete app from simulator
-# npm start → Select simulator (i/a)
-# Fresh empty database → Auto-seeded
-```
-
-## Database Testing & Introspection
+## Database Inspection & Management
 
 ### Viewing Database Contents
 
@@ -158,6 +122,28 @@ x
 ### Note on Web Support
 
 SQLite database functionality only works on native platforms (iOS/Android). The web version uses stub implementations and displays appropriate messages. For database testing, use iOS Simulator or Android Emulator.
+
+## Android Device Management with ADB
+
+### Pushing CSV Files to Android Emulator
+
+Use the Android Debug Bridge (adb) to transfer CSV files from your computer to the Android emulator:
+
+1. **List Connected Devices:**
+   ```bash
+   adb devices
+   ```
+   This shows connected devices and running emulators (e.g., `emulator-5554`).
+
+2. **Push CSV File to Emulator:**
+   ```bash
+   adb -s device-name push /path/to/file.csv /sdcard/Documents/
+   ```
+   
+   **Example:**
+   ```bash
+   adb -s emulator-5554 push ~/Downloads/transactions.csv /sdcard/Documents/
+   ```
 
 ## Start project
 

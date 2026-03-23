@@ -9,6 +9,8 @@ import { PanResponder, GestureResponderEvent, PanResponderGestureState } from 'r
 interface UseMonthNavigationReturn {
     currentMonth: Date;
     setCurrentMonth: (date: Date) => void;
+    previousMonth: () => void;
+    nextMonth: () => void;
     panResponder: ReturnType<typeof PanResponder.create>;
 }
 
@@ -21,6 +23,26 @@ export function useMonthNavigation(initialMonth: Date = new Date()): UseMonthNav
         currentMonthRef.current = currentMonth;
     }, [currentMonth]);
 
+    // Navigate to previous month
+    const previousMonth = useCallback(() => {
+        const newMonth = new Date(
+            currentMonthRef.current.getFullYear(),
+            currentMonthRef.current.getMonth() - 1,
+            1
+        );
+        setCurrentMonth(newMonth);
+    }, []);
+
+    // Navigate to next month
+    const nextMonth = useCallback(() => {
+        const newMonth = new Date(
+            currentMonthRef.current.getFullYear(),
+            currentMonthRef.current.getMonth() + 1,
+            1
+        );
+        setCurrentMonth(newMonth);
+    }, []);
+
     // Handle swipe gestures - memoized with dependencies
     const handleSwipe = useCallback((
         evt: GestureResponderEvent,
@@ -31,22 +53,12 @@ export function useMonthNavigation(initialMonth: Date = new Date()): UseMonthNav
 
         if (dx > SWIPE_THRESHOLD) {
             // Swiped right - go to previous month
-            const newMonth = new Date(
-                currentMonthRef.current.getFullYear(),
-                currentMonthRef.current.getMonth() - 1,
-                1
-            );
-            setCurrentMonth(newMonth);
+            previousMonth();
         } else if (dx < -SWIPE_THRESHOLD) {
             // Swiped left - go to next month
-            const newMonth = new Date(
-                currentMonthRef.current.getFullYear(),
-                currentMonthRef.current.getMonth() + 1,
-                1
-            );
-            setCurrentMonth(newMonth);
+            nextMonth();
         }
-    }, []);
+    }, [previousMonth, nextMonth]);
 
     const panResponder = useRef(
         PanResponder.create({
@@ -56,5 +68,6 @@ export function useMonthNavigation(initialMonth: Date = new Date()): UseMonthNav
         })
     ).current;
 
-    return { currentMonth, setCurrentMonth, panResponder };
+    return { currentMonth, setCurrentMonth, previousMonth, nextMonth, panResponder };
 }
+

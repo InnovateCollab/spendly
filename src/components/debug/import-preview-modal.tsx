@@ -35,7 +35,7 @@ export function ImportPreviewModal({
             const cats = await database.getCategories();
             setCategories(cats);
         } catch (error) {
-            console.error('Failed to load categories:', error);
+            console.warn('Failed to load categories:', error);
         } finally {
             setIsLoading(false);
         }

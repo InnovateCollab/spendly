@@ -28,6 +28,7 @@ export const AmountDisplay: React.FC<AmountDisplayProps> = ({
             type="default"
             style={[
                 {
+                    fontSize: 18,
                     color,
                     fontWeight: '600',
                 },

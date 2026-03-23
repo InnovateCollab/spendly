@@ -35,7 +35,7 @@ export function useTransactionLoader(filterMonth?: Date) {
             setLoading(false);
 
             // Retry if database not ready
-            if (error instanceof Error && error.message.includes('not connected')) {
+            if (error instanceof Error && (error.message.includes('not connected') || error.message.includes('not initialized'))) {
                 setTimeout(() => loadTransactions(month), 1000);
             }
         }

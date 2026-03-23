@@ -93,8 +93,7 @@ export function useCSVImport() {
                 const cats = await database.getCategories();
                 setCategories(cats);
             } catch (error) {
-                console.error('Failed to load categories:', error);
-                Alert.alert('Error', 'Failed to load categories from database');
+                console.warn('Failed to load categories:', error);
             }
         };
 
@@ -193,13 +192,13 @@ export function useCSVImport() {
     }, []);
 
     const importFromFile = useCallback(
-        async (fileUri: string): Promise<ImportTransactionData[]> => {
+        async (fileUri: string): Promise<ImportResult> => {
             try {
                 const fileInfo = await getInfoAsync(fileUri);
 
                 if (!fileInfo.exists) {
                     Alert.alert('Error', 'File not found at the specified location.');
-                    return [];
+                    return { valid: [], invalid: [] };
                 }
 
                 const fileContent = await readAsStringAsync(fileUri, { encoding: 'utf8' });
@@ -208,11 +207,11 @@ export function useCSVImport() {
                 setImportedData(parseResult.valid);
                 setInvalidRows(parseResult.invalid);
 
-                return parseResult.valid;
+                return parseResult;
             } catch (error: any) {
                 const errorMessage = error.message || String(error).substring(0, 100);
                 Alert.alert('Error', `Failed to read file: ${errorMessage}`);
-                return [];
+                return { valid: [], invalid: [] };
             }
         },
         [parseCSV]
