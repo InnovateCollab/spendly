@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, Platform } from 'react-native';
+import { MaxContentWidth } from '@/constants/theme';
 
 interface DebugMenuModalProps {
     visible: boolean;
@@ -30,6 +31,9 @@ export function DebugMenuModal({
                     flex: 1,
                     justifyContent: 'flex-end',
                     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    ...(Platform.OS === 'web' && {
+                        alignItems: 'center',
+                    }),
                 }}
             >
                 <View
@@ -41,6 +45,10 @@ export function DebugMenuModal({
                         paddingHorizontal: 20,
                         paddingBottom: 40,
                         maxHeight: '80%',
+                        ...(Platform.OS === 'web' && {
+                            maxWidth: MaxContentWidth,
+                            width: '100%',
+                        }),
                     }}
                 >
                     <View style={{ marginBottom: 20 }}>

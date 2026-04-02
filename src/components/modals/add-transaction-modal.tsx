@@ -594,7 +594,7 @@ export const AddTransactionModal = ({
     );
 };
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<any>({
     modalContainer: {
         flex: 1,
         flexDirection: 'row',
@@ -738,6 +738,9 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'flex-end',
         backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        ...(Platform.OS === 'web' && {
+            alignItems: 'center',
+        }),
     },
     categoryPickerBackdrop: {
         flex: 1,
@@ -749,6 +752,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: Spacing.two,
         paddingTop: Spacing.three,
         paddingBottom: Spacing.three,
+        ...(Platform.OS === 'web' && {
+            maxWidth: MaxContentWidth,
+            width: '100%',
+        }),
     },
     categorySheetHeader: {
         flexDirection: 'row',

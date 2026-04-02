@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, Modal, TouchableOpacity } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, Platform } from 'react-native';
+import { MaxContentWidth } from '@/constants/theme';
 
 interface ImportOptionsModalProps {
     visible: boolean;
@@ -26,6 +27,9 @@ export function ImportOptionsModal({
                     flex: 1,
                     justifyContent: 'flex-end',
                     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    ...(Platform.OS === 'web' && {
+                        alignItems: 'center',
+                    }),
                 }}
             >
                 <View
@@ -36,6 +40,10 @@ export function ImportOptionsModal({
                         paddingTop: 20,
                         paddingHorizontal: 20,
                         paddingBottom: 40,
+                        ...(Platform.OS === 'web' && {
+                            maxWidth: MaxContentWidth,
+                            width: '100%',
+                        }),
                     }}
                 >
                     <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 20 }}>
