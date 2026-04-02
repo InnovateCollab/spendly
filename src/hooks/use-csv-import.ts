@@ -217,11 +217,22 @@ export function useCSVImport() {
         [parseCSV]
     );
 
+    const parseCSVDirect = useCallback(
+        (csvText: string): ImportResult => {
+            const result = parseCSV(csvText);
+            setImportedData(result.valid);
+            setInvalidRows(result.invalid);
+            return result;
+        },
+        [parseCSV]
+    );
+
     return {
         importedData,
         invalidRows,
         importFromText,
         importFromFile,
+        parseCSVDirect,
         clearImportedData,
     };
 }

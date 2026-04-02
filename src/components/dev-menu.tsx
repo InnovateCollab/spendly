@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Text, TouchableOpacity, Alert } from 'react-native';
+import { useState, useEffect, useRef } from 'react';
+import { Text, TouchableOpacity, Alert, Platform } from 'react-native';
 import { database } from '@/database';
 import { CATEGORIES } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
@@ -17,7 +17,8 @@ export function DevMenu() {
     const [showImportPreview, setShowImportPreview] = useState(false);
     const [showImportOptions, setShowImportOptions] = useState(false);
     const [isLoadingFile, setIsLoadingFile] = useState(false);
-    const { importedData, invalidRows, importFromText, importFromFile, clearImportedData } = useCSVImport();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const { importedData, invalidRows, importFromText, importFromFile, parseCSVDirect, clearImportedData } = useCSVImport();
     const { triggerRefresh } = useDatabaseRefresh();
 
     useEffect(() => {
@@ -161,50 +162,85 @@ export function DevMenu() {
     }
 
     async function handlePickCSVFile() {
+        if (Platform.OS === 'web') {
+            // On web, use HTML file input
+            fileInputRef.current?.click();
+        } else {
+            // On native, use DocumentPicker
+            try {
+                setShowImportOptions(false);
+                setIsLoadingFile(true);
+
+                const DocumentPicker = await import('expo-document-picker');
+
+                const result = await DocumentPicker.getDocumentAsync({
+                    type: '*/*',
+                    copyToCacheDirectory: true,
+                });
+
+                if (result.canceled) {
+                    setIsLoadingFile(false);
+                    setShowImportOptions(true);
+                    return;
+                }
+
+                if (!result.assets || result.assets.length === 0) {
+                    setIsLoadingFile(false);
+                    setShowImportOptions(true);
+                    return;
+                }
+
+                const file = result.assets[0];
+                const parseResult = await importFromFile(file.uri);
+                setIsLoadingFile(false);
+
+                if ((parseResult.valid && parseResult.valid.length > 0) || parseResult.invalid.length > 0) {
+                    setShowImportPreview(true);
+                } else {
+                    Alert.alert('No Data', 'The file could not be parsed.');
+                    setShowImportOptions(true);
+                }
+            } catch (error: any) {
+                setIsLoadingFile(false);
+
+                if (error.name === 'PickerCanceledError' || error.message === 'User cancelled document picker') {
+                    setShowImportOptions(true);
+                } else {
+                    Alert.alert('Error', `${error.message || String(error).substring(0, 100)}`);
+                    setShowImportOptions(true);
+                }
+            }
+        }
+    }
+
+    async function handleWebFileChange(event: any) {
         try {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
             setShowImportOptions(false);
             setIsLoadingFile(true);
 
-            // Lazy load DocumentPicker only when needed (not available in preview builds)
-            const DocumentPicker = await import('expo-document-picker');
+            // Read the file and parse it
+            const fileContents = await file.text();
+            const parseResult = parseCSVDirect(fileContents);
 
-            const result = await DocumentPicker.getDocumentAsync({
-                type: '*/*',
-                copyToCacheDirectory: true,
-            });
-
-            if (result.canceled) {
-                setIsLoadingFile(false);
-                setShowImportOptions(true);
-                return;
-            }
-
-            if (!result.assets || result.assets.length === 0) {
-                setIsLoadingFile(false);
-                setShowImportOptions(true);
-                return;
-            }
-
-            const file = result.assets[0];
-            const parseResult = await importFromFile(file.uri);
             setIsLoadingFile(false);
 
-            // show preview if there are valid transactions OR invalid rows to display
             if ((parseResult.valid && parseResult.valid.length > 0) || parseResult.invalid.length > 0) {
                 setShowImportPreview(true);
             } else {
                 Alert.alert('No Data', 'The file could not be parsed.');
                 setShowImportOptions(true);
             }
+
+            // Reset input
+            event.target.value = '';
         } catch (error: any) {
             setIsLoadingFile(false);
-
-            if (error.name === 'PickerCanceledError' || error.message === 'User cancelled document picker') {
-                setShowImportOptions(true);
-            } else {
-                Alert.alert('Error', `${error.message || String(error).substring(0, 100)}`);
-                setShowImportOptions(true);
-            }
+            const errorMessage = error.message || String(error).substring(0, 100);
+            Alert.alert('Error', `Failed to read file: ${errorMessage}`);
+            setShowImportOptions(true);
         }
     }
 
@@ -259,6 +295,17 @@ export function DevMenu() {
                 onPickFile={handlePickCSVFile}
                 onClose={() => setShowImportOptions(false)}
             />
+
+            {/* Hidden file input for web */}
+            {Platform.OS === 'web' && (
+                <input
+                    ref={fileInputRef as any}
+                    type="file"
+                    accept=".csv"
+                    style={{ display: 'none' }}
+                    onChange={handleWebFileChange}
+                />
+            )}
         </>
     );
 }
