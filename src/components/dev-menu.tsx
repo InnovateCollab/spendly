@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Text, TouchableOpacity, Alert } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import { database } from '@/database';
 import { CATEGORIES } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
@@ -165,6 +164,9 @@ export function DevMenu() {
         try {
             setShowImportOptions(false);
             setIsLoadingFile(true);
+
+            // Lazy load DocumentPicker only when needed (not available in preview builds)
+            const DocumentPicker = await import('expo-document-picker');
 
             const result = await DocumentPicker.getDocumentAsync({
                 type: '*/*',

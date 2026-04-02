@@ -118,14 +118,14 @@ class IndexedDBDatabase {
 
         const categoryArray = Object.values(CATEGORIES);
         for (const category of categoryArray) {
-            const iconWeb = typeof category.icon === 'string'
-                ? category.icon
-                : (category.icon as any).web || 'questionmark.circle';
+            const iconData = typeof category.icon === 'object' ? category.icon : {};
 
             await this._addToStore(this.categoryStore, {
                 id: category.id,
                 name: category.name,
-                icon: iconWeb,
+                icon_ios: (iconData as any).ios || 'questionmark.square',
+                icon_android: (iconData as any).android || 'help',
+                icon_web: (iconData as any).web || 'help',
                 color: category.color,
                 type: category.type,
             });
@@ -142,8 +142,8 @@ class IndexedDBDatabase {
                     categoryId: tx.category.id,
                     amount: tx.amount,
                     date: tx.date instanceof Date ? tx.date.toISOString() : tx.date,
-                    note: tx.note,
-                    labels: tx.labels,
+                    note: tx.note || null,
+                    labels: tx.labels ? JSON.stringify(tx.labels) : null,
                 });
             }
         }
@@ -186,8 +186,11 @@ class IndexedDBDatabase {
             const tx = this.db.transaction([this.transactionStore], 'readwrite');
             const store = tx.objectStore(this.transactionStore);
             const request = store.add({
-                ...transaction,
+                categoryId: transaction.categoryId,
+                amount: transaction.amount,
                 date: transaction.date instanceof Date ? transaction.date.toISOString() : transaction.date,
+                note: transaction.note || null,
+                labels: transaction.labels ? JSON.stringify(transaction.labels) : null,
             });
 
             request.onerror = () => reject(request.error);
@@ -195,9 +198,23 @@ class IndexedDBDatabase {
         });
     }
 
-    async insertCategory() {
-        // Categories are managed separately via seed data
-        return 0;
+    async insertCategory(category: Omit<Category, 'id'>) {
+        const iconData = typeof category.icon === 'object' ? category.icon : {};
+
+        try {
+            const result = await this._addToStore(this.categoryStore, {
+                name: category.name,
+                icon_ios: (iconData as any).ios || 'questionmark.square',
+                icon_android: (iconData as any).android || 'help',
+                icon_web: (iconData as any).web || 'help',
+                color: category.color,
+                type: category.type,
+            });
+            return result;
+        } catch (error) {
+            console.log(`Category "${category.name}" already exists`, error);
+            return 0;
+        }
     }
 
     // ============================================
@@ -216,8 +233,8 @@ class IndexedDBDatabase {
                 categoryId: row.categoryId,
                 amount: row.amount,
                 date: new Date(row.date),
-                note: row.note,
-                labels: row.labels,
+                note: row.note || undefined,
+                labels: this._parseLabels(row.labels),
             }))
             .sort((a, b) => b.date.getTime() - a.date.getTime());
     }
@@ -279,9 +296,13 @@ class IndexedDBDatabase {
         return rows.map(row => ({
             id: row.id,
             name: row.name,
-            icon: row.icon as any,
             color: row.color,
             type: row.type,
+            icon: {
+                ios: row.icon_ios || 'questionmark.square',
+                android: row.icon_android || 'help',
+                web: row.icon_web || 'help'
+            } as any
         }));
     }
 
@@ -304,11 +325,26 @@ class IndexedDBDatabase {
             request.onsuccess = () => {
                 const existing = request.result;
                 if (existing) {
-                    const updated = {
-                        ...existing,
-                        ...transaction,
-                        date: transaction.date instanceof Date ? transaction.date.toISOString() : (transaction.date || existing.date),
-                    };
+                    const updated = { ...existing };
+
+                    if (transaction.categoryId !== undefined) {
+                        updated.categoryId = transaction.categoryId;
+                    }
+                    if (transaction.amount !== undefined) {
+                        updated.amount = transaction.amount;
+                    }
+                    if (transaction.date !== undefined) {
+                        updated.date = transaction.date instanceof Date
+                            ? transaction.date.toISOString()
+                            : transaction.date;
+                    }
+                    if (transaction.note !== undefined) {
+                        updated.note = transaction.note;
+                    }
+                    if (transaction.labels !== undefined) {
+                        updated.labels = transaction.labels ? JSON.stringify(transaction.labels) : null;
+                    }
+
                     const updateRequest = store.put(updated);
                     updateRequest.onerror = () => reject(updateRequest.error);
                     updateRequest.onsuccess = () => resolve();
@@ -366,10 +402,30 @@ class IndexedDBDatabase {
         return {
             id: 0,
             name: 'Unknown',
-            icon: 'questionmark.circle' as any,
-            color: '#6b7280',
+            icon: { ios: 'questionmark.square', android: 'help', web: 'help' } as any,
+            color: '#666666',
             type: 'expense',
         };
+    }
+
+    private _parseLabels(labels: any): any {
+        if (!labels) {
+            return undefined;
+        }
+        // If it's already an array/object, return as-is (from legacy data)
+        if (typeof labels === 'object') {
+            return labels;
+        }
+        // If it's a string, try to parse it
+        if (typeof labels === 'string') {
+            try {
+                return JSON.parse(labels);
+            } catch (error) {
+                console.warn('Failed to parse labels:', labels, error);
+                return undefined;
+            }
+        }
+        return undefined;
     }
 
     private async _getFromStore(storeName: string): Promise<any[]> {
