@@ -170,7 +170,7 @@ export function DevMenu() {
 
             const result = await DocumentPicker.getDocumentAsync({
                 type: '*/*',
-                copyToCacheDirectory: false,
+                copyToCacheDirectory: true,
             });
 
             if (result.canceled) {
