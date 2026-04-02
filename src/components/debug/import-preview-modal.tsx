@@ -136,7 +136,7 @@ export function ImportPreviewModal({
                                                             color: '#333',
                                                         }}
                                                     >
-                                                        ${transaction.amount.toFixed(2)}
+                                                        {transaction.amount.toFixed(2)}
                                                     </Text>
                                                 </View>
 
@@ -214,7 +214,7 @@ export function ImportPreviewModal({
                                                     {row.date || '—'}
                                                 </Text>
                                                 <Text style={{ fontSize: 12, color: '#666', fontWeight: '600' }}>
-                                                    ${row.amount || '0.00'}
+                                                    {row.amount || '0.00'}
                                                 </Text>
                                             </View>
 

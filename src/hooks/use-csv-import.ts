@@ -40,7 +40,7 @@ export interface ImportResult {
  * Field mapping configuration for handling different CSV header name variations
  */
 const FIELD_MAPPING = {
-    date: ['date', 'transaction date', 'trans date', 'posted date'],
+    date: ['date', 'transaction date', 'trans date', 'posted date', 'Booking Date'],
     amount: ['amount', 'transaction amount', 'trans amount', 'value'],
     category: ['tags', 'category', 'type', 'transaction type'],
     description: ['remarks', 'description', 'transaction details', 'details', 'comment', 'notes']
@@ -69,14 +69,38 @@ function formatDate(dateStr: string): Date | null {
     }
 }
 
-// Normalize tag text (remove special chars, lowercase)
+// Normalize tag text (remove emojis, special chars, lowercase)
 function normalizeTag(tag: string): string {
-    return tag.replace(/[#?? ]+/g, '').trim().toLowerCase();
+    // Remove emojis and special characters, keep only alphanumeric and spaces
+    let normalized = tag
+        .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '') // Remove emojis
+        .replace(/[^a-z0-9\s]/gi, '') // Remove special characters, keep only letters, numbers, spaces
+        .trim()
+        .toLowerCase();
+
+    // Remove extra spaces
+    return normalized.replace(/\s+/g, ' ').trim();
 }
 
 // Find matching category from database categories based on normalized tag
 function findCategoryId(normalizedTag: string, categories: Category[]): number | undefined {
-    const match = categories.find((cat) => cat.name.toLowerCase() === normalizedTag);
+    // First try exact match
+    let match = categories.find((cat) => cat.name.toLowerCase() === normalizedTag);
+    if (match) return match.id;
+
+    // Then try partial/substring match (category name contains tag or vice versa)
+    match = categories.find((cat) => {
+        const catNameLower = cat.name.toLowerCase();
+        return catNameLower.includes(normalizedTag) || normalizedTag.includes(catNameLower);
+    });
+    if (match) return match.id;
+
+    // Finally try word-based matching (any word in category name matches any word in tag)
+    const tagWords = normalizedTag.split(/\s+/);
+    match = categories.find((cat) => {
+        const catWords = cat.name.toLowerCase().split(/\s+/);
+        return tagWords.some((word) => catWords.some((catWord) => catWord.includes(word) || word.includes(catWord)));
+    });
     return match?.id;
 }
 
