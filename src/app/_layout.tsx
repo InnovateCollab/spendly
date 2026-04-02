@@ -7,6 +7,7 @@ import AppTabs from '@/components/layout/app-tabs';
 import { useInitializeApp } from '@/hooks/use-initialize-app';
 import { DevMenu } from '@/components/dev-menu';
 import { DatabaseProvider } from '@/contexts/database-context';
+import { AddTransactionProvider } from '@/contexts/add-transaction-context';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -26,11 +27,13 @@ export default function TabLayout() {
 
   return (
     <DatabaseProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        {showSplash && <AnimatedSplashOverlay />}
-        <AppTabs />
-        <DevMenu />
-      </ThemeProvider>
+      <AddTransactionProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          {showSplash && <AnimatedSplashOverlay />}
+          <AppTabs />
+          <DevMenu />
+        </ThemeProvider>
+      </AddTransactionProvider>
     </DatabaseProvider>
   );
 }

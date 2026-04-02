@@ -14,6 +14,7 @@ import { useLayoutInsets } from '@/hooks/use-layout-insets';
 import { useTransactionLoader } from '@/hooks/use-transaction-loader';
 import { useMonthNavigation } from '@/hooks/use-month-navigation';
 import { useDatabaseRefresh } from '@/contexts/database-context';
+import { useAddTransaction } from '@/contexts/add-transaction-context';
 import { AmountDisplay } from '@/components/common/amount-display';
 
 export default function TimelineScreen() {
@@ -22,9 +23,18 @@ export default function TimelineScreen() {
   const { currentMonth, previousMonth, nextMonth, panResponder } = useMonthNavigation();
   const { transactions: monthTransactions, loadTransactions } = useTransactionLoader(currentMonth);
   const { refreshTrigger } = useDatabaseRefresh();
+  const { isOpen: isAddTransactionOpen, closeAddTransaction } = useAddTransaction();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<TransactionUI | undefined>(undefined);
+
+  // Sync add transaction modal state
+  useEffect(() => {
+    if (isAddTransactionOpen) {
+      setIsModalVisible(true);
+      setEditingTransaction(undefined);
+    }
+  }, [isAddTransactionOpen]);
 
   // Calculate total cash flow for the current month
   const totalCashFlow = useMemo(() => {
@@ -39,6 +49,7 @@ export default function TimelineScreen() {
   const handleCloseModal = () => {
     setIsModalVisible(false);
     setEditingTransaction(undefined);
+    closeAddTransaction();
   };
 
   const handleTransactionSuccess = () => {

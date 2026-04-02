@@ -1,16 +1,26 @@
-import { Pressable, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { ThemedText } from '../ui/themed-text';
 import { ThemedView } from '../ui/themed-view';
 import { Spacing } from '@/constants/theme';
+import { useAddTransaction } from '@/contexts/add-transaction-context';
 
 export function AddButton() {
     const router = useRouter();
+    const { openAddTransaction } = useAddTransaction();
+
+    const handlePress = () => {
+        if (Platform.OS === 'web') {
+            openAddTransaction();
+        } else {
+            router.push('/transaction' as any);
+        }
+    };
 
     return (
         <Pressable
-            onPress={() => router.push('/transaction' as any)}
+            onPress={handlePress}
             style={({ pressed }) => pressed && styles.pressed}
         >
             <ThemedView type="backgroundElement" style={[styles.addButtonView, { backgroundColor: '#22c55e' }]}>
