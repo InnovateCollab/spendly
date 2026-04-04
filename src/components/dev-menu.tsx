@@ -5,7 +5,7 @@ import { CATEGORIES } from '@/constants/categories';
 import { TRANSACTION_SECTIONS } from '@/data/seed-transactions';
 import { SAMPLE_CSV } from '@/data/csv-import-sample';
 import { useDatabaseRefresh } from '@/contexts/database-context';
-import { useCSVImport } from '@/hooks/use-csv-import';
+import { useCSVImport, ColumnMapping } from '@/hooks/use-csv-import';
 import { importTransactionsToDatabase } from '@/services/csv-import-service';
 import { DebugMenuModal } from './debug/debug-menu-modal';
 import { ImportPreviewModal } from './debug/import-preview-modal';
@@ -19,7 +19,7 @@ export function DevMenu() {
     const [isLoadingFile, setIsLoadingFile] = useState(false);
     const [rawCsvText, setRawCsvText] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { importedData, invalidRows, importFromText, importFromFile, parseCSVDirect, parseCSVDirectWithFormat, clearImportedData, dateFormat, setDateFormat } = useCSVImport();
+    const { importedData, invalidRows, importFromText, importFromFile, parseCSVDirect, parseCSVDirectWithFormat, parseCSVDirectWithMapping, clearImportedData, dateFormat, setDateFormat } = useCSVImport();
     const { triggerRefresh } = useDatabaseRefresh();
 
     useEffect(() => {
@@ -266,6 +266,19 @@ export function DevMenu() {
         }
     }
 
+    async function handleReparseWithMapping(newFormat: string, mapping: ColumnMapping) {
+        try {
+            if (rawCsvText) {
+                const parseResult = parseCSVDirectWithMapping(rawCsvText, newFormat, mapping);
+                return parseResult;
+            }
+            return { valid: [], invalid: [] };
+        } catch (error: any) {
+            console.error('Failed to reparse CSV with mapping:', error);
+            throw error;
+        }
+    }
+
     return (
         <>
             {/* Floating Debug Button */}
@@ -306,6 +319,7 @@ export function DevMenu() {
                 onDateFormatChange={setDateFormat}
                 rawCsvText={rawCsvText}
                 onReparseWithFormat={handleReparseWithFormat}
+                onReparseWithMapping={handleReparseWithMapping}
                 onClose={() => {
                     clearImportedData();
                     setShowImportPreview(false);

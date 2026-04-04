@@ -13,9 +13,9 @@ import { parse_auto, setDefaultFormat } from '@/utils/date-utils';
 
 /**
  * Type alias for transaction data during import
- * Uses Transaction schema without the auto-generated id
+ * Uses Transaction schema without the auto-generated id, includes row index for reference
  */
-export type ImportTransactionData = Omit<Transaction, 'id'>;
+export type ImportTransactionData = Omit<Transaction, 'id'> & { rowIndex: number };
 
 /**
  * Invalid import transaction row with validation error details
@@ -48,6 +48,13 @@ const FIELD_MAPPING = {
 };
 
 /**
+ * Column mapping configuration from expected fields to CSV headers
+ */
+export interface ColumnMapping {
+    [key: string]: string; // e.g., { 'Date': 'Booking Date', 'Amount': 'Amount (EUR)', ... }
+}
+
+/**
  * Find column index by checking multiple possible header names
  */
 function findColumnIndex(headers: string[], fieldVariations: string[]): number {
@@ -56,6 +63,13 @@ function findColumnIndex(headers: string[], fieldVariations: string[]): number {
             header.toLowerCase().includes(variation.toLowerCase())
         )
     );
+}
+
+/**
+ * Get column index by user-selected header name
+ */
+function getColumnIndexByName(headers: string[], headerName: string): number {
+    return headers.findIndex((h) => h === headerName);
 }
 
 // Normalize tag text (remove emojis, special chars, lowercase)
@@ -162,7 +176,7 @@ export function useCSVImport() {
 
                 if (errors.length > 0) {
                     invalid.push({
-                        rowIndex: lineIndex + 2, // +2 for header and 1-based indexing
+                        rowIndex: lineIndex + 1,
                         date: dateStr,
                         amount: amountStr,
                         categoryTag: categoryStr,
@@ -175,6 +189,7 @@ export function useCSVImport() {
                         amount,
                         categoryId: categoryId!,
                         note: descriptionStr || undefined,
+                        rowIndex: lineIndex + 1,
                     });
                 }
             });
@@ -239,7 +254,7 @@ export function useCSVImport() {
 
                 if (errors.length > 0) {
                     invalid.push({
-                        rowIndex: lineIndex + 2, // +2 for header and 1-based indexing
+                        rowIndex: lineIndex + 1, // +1 for 1-based indexing
                         date: dateStr,
                         amount: amountStr,
                         categoryTag: categoryStr,
@@ -252,6 +267,7 @@ export function useCSVImport() {
                         amount,
                         categoryId: categoryId!,
                         note: descriptionStr || undefined,
+                        rowIndex: lineIndex + 1,
                     });
                 }
             });
@@ -264,6 +280,79 @@ export function useCSVImport() {
             return { valid, invalid };
         } catch (error: any) {
             Alert.alert('Error', `Failed to parse CSV: ${String(error).substring(0, 100)}`);
+            return { valid: [], invalid: [] };
+        }
+    }, [categories]);
+
+    const parseCSVWithMapping = useCallback((csvText: string, format: string, mapping: ColumnMapping): ImportResult => {
+        try {
+            // Set default format for this parsing session
+            setDefaultFormat(format);
+
+            const lines = csvText.split('\n').filter((line: string) => line.trim());
+
+            if (lines.length < 2) {
+                // Silently return empty - user is still selecting columns
+                return { valid: [], invalid: [] };
+            }
+
+            const headers = lines[0].split(',').map((h: string) => h.trim());
+
+            // Use column mapping to find column indices
+            const dateIndex = mapping['Date'] ? getColumnIndexByName(headers, mapping['Date']) : -1;
+            const amountIndex = mapping['Amount'] ? getColumnIndexByName(headers, mapping['Amount']) : -1;
+            const categoryIndex = mapping['Category'] ? getColumnIndexByName(headers, mapping['Category']) : -1;
+            const descriptionIndex = mapping['Description'] ? getColumnIndexByName(headers, mapping['Description']) : -1;
+
+            // If required columns aren't mapped, silently return empty - user is still selecting
+            if (dateIndex === -1 || amountIndex === -1 || categoryIndex === -1) {
+                return { valid: [], invalid: [] };
+            }
+
+            const valid: ImportTransactionData[] = [];
+            const invalid: InvalidImportRow[] = [];
+
+            lines.slice(1).forEach((line: string, lineIndex: number) => {
+                const cols = line.split(',').map((c: string) => c.trim());
+                const dateStr = cols[dateIndex] || '';
+                const amountStr = cols[amountIndex] || '0';
+                const categoryStr = cols[categoryIndex] || '';
+                const descriptionStr = descriptionIndex !== -1 ? cols[descriptionIndex] : '';
+
+                const dateISO = parse_auto(dateStr);
+                const date = dateISO ? new Date(dateISO) : null;
+                const amount = parseFloat(amountStr.replace(/,/g, '').replace(/[^\d.-]/g, ''));
+                const normalizedTag = normalizeTag(categoryStr);
+                const categoryId = findCategoryId(normalizedTag, categories);
+
+                const errors: string[] = [];
+                if (!date) errors.push('Invalid date format');
+                if (isNaN(amount)) errors.push('Invalid amount');
+                if (!categoryId) errors.push(`Category "${categoryStr}" not found`);
+
+                if (errors.length > 0) {
+                    invalid.push({
+                        rowIndex: lineIndex + 1,
+                        date: dateStr,
+                        amount: amountStr,
+                        categoryTag: categoryStr,
+                        description: descriptionStr,
+                        errors,
+                    });
+                } else {
+                    valid.push({
+                        date: date!,
+                        amount,
+                        categoryId: categoryId!,
+                        note: descriptionStr || undefined,
+                        rowIndex: lineIndex + 1,
+                    });
+                }
+            });
+
+            return { valid, invalid };
+        } catch (error: any) {
+            console.warn('Failed to parse CSV with mapping:', error);
             return { valid: [], invalid: [] };
         }
     }, [categories]);
@@ -333,6 +422,17 @@ export function useCSVImport() {
         [parseCSVWithFormat]
     );
 
+    const parseCSVDirectWithMapping = useCallback(
+        (csvText: string, format: string, mapping: ColumnMapping): ImportResult => {
+            const result = parseCSVWithMapping(csvText, format, mapping);
+            setImportedData(result.valid);
+            setInvalidRows(result.invalid);
+            setDateFormat(format);
+            return result;
+        },
+        [parseCSVWithMapping]
+    );
+
     return {
         importedData,
         invalidRows,
@@ -340,6 +440,7 @@ export function useCSVImport() {
         importFromFile,
         parseCSVDirect,
         parseCSVDirectWithFormat,
+        parseCSVDirectWithMapping,
         clearImportedData,
         dateFormat,
         setDateFormat,

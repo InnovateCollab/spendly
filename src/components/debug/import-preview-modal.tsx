@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator, Platform, FlatList } from 'react-native';
 import { MaxContentWidth } from '@/constants/theme';
 import { database } from '@/database';
-import { ImportTransactionData, InvalidImportRow, ImportResult } from '@/hooks/use-csv-import';
+import { ImportTransactionData, InvalidImportRow, ImportResult, ColumnMapping } from '@/hooks/use-csv-import';
 import { Category } from '@/schemas/category';
 
 interface ImportPreviewModalProps {
@@ -15,6 +15,7 @@ interface ImportPreviewModalProps {
     onDateFormatChange?: (format: string) => void;
     rawCsvText?: string;
     onReparseWithFormat?: (format: string) => Promise<ImportResult>;
+    onReparseWithMapping?: (format: string, mapping: ColumnMapping) => Promise<ImportResult>;
 }
 
 // Common date format orders (separators are handled automatically)
@@ -34,11 +35,57 @@ export function ImportPreviewModal({
     onDateFormatChange,
     rawCsvText,
     onReparseWithFormat,
+    onReparseWithMapping,
 }: ImportPreviewModalProps) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showFormatPicker, setShowFormatPicker] = useState(false);
     const [isReparsing, setIsReparsing] = useState(false);
+    const [columnMappings, setColumnMappings] = useState<ColumnMapping>({
+        'Date': '',
+        'Description': '',
+        'Category': '',
+        'Amount': '',
+    });
+    const [openMappingDropdown, setOpenMappingDropdown] = useState<string | null>(null);
+
+    // Auto-detect columns on first modal open
+    useEffect(() => {
+        if (visible && rawCsvText) {
+            initializeColumnMappings();
+        }
+    }, [visible, rawCsvText]);
+
+    const initializeColumnMappings = () => {
+        const headers = getCSVHeaders();
+        if (headers.length === 0) return;
+
+        // Field mapping for auto-detection
+        const fieldMapping = {
+            date: ['date', 'transaction date', 'trans date', 'posted date', 'booking date'],
+            amount: ['amount', 'transaction amount', 'trans amount', 'value'],
+            category: ['tags', 'category', 'type', 'transaction type'],
+            description: ['remarks', 'description', 'transaction details', 'details', 'comment', 'notes']
+        };
+
+        // Find column indices by checking multiple possible header names
+        const findColumn = (fieldVariations: string[]): string => {
+            const found = headers.find(header =>
+                fieldVariations.some(variation =>
+                    header.toLowerCase().includes(variation.toLowerCase())
+                )
+            );
+            return found || '';
+        };
+
+        // Set initial mappings based on auto-detection
+        setColumnMappings({
+            'Date': findColumn(fieldMapping.date),
+            'Amount': findColumn(fieldMapping.amount),
+            'Category': findColumn(fieldMapping.category),
+            'Description': findColumn(fieldMapping.description),
+        });
+    };
 
     useEffect(() => {
         if (visible) {
@@ -85,6 +132,64 @@ export function ImportPreviewModal({
             }
         } else {
             setShowFormatPicker(false);
+        }
+    };
+
+    const getCSVHeaders = (): string[] => {
+        if (!rawCsvText) return [];
+        const lines = rawCsvText.trim().split('\n');
+        if (lines.length === 0) return [];
+        // Split by comma and trim whitespace, but DO NOT remove quotes
+        // The parsing functions will handle exact column names as they appear
+        return lines[0].split(',').map(h => h.trim());
+    };
+
+    const getCSVDataRows = (count: number = 2): string[][] => {
+        if (!rawCsvText) return [];
+        const lines = rawCsvText.trim().split('\n');
+        if (lines.length < 2) return [];
+        // Get first `count` data rows (skip header)
+        // Keep values as-is to show exactly what's in the file
+        return lines.slice(1, count + 1).map(line =>
+            line.split(',').map(cell => cell.trim())
+        );
+    };
+
+    const calculateColumnWidths = (): number[] => {
+        const headers = getCSVHeaders();
+        if (headers.length === 0) return [];
+
+        // Calculate width for each column based on header length
+        // Each character is roughly 6-7 pixels in our font, plus padding
+        return headers.map(header => {
+            const textWidth = header.length * 7;
+            const paddingWidth = 16; // paddingHorizontal: 8 on both sides
+            const minWidth = 80;
+            return Math.max(textWidth + paddingWidth, minWidth);
+        });
+    };
+
+    const expectedSchema = ['Date', 'Description', 'Category', 'Amount'];
+
+    const handleColumnMapping = async (expectedColumn: string, csvColumn: string) => {
+        const newMappings: ColumnMapping = {
+            ...columnMappings,
+            [expectedColumn]: csvColumn
+        };
+        setColumnMappings(newMappings);
+        setOpenMappingDropdown(null);
+
+        // Always re-parse with the new mapping whenever a column is selected
+        if (onReparseWithMapping && rawCsvText) {
+            try {
+                setIsReparsing(true);
+                await onReparseWithMapping(dateFormat, newMappings);
+                // The parent will update the importedData and invalidRows automatically
+            } catch (error) {
+                console.warn('Failed to reparse with new mapping:', error);
+            } finally {
+                setIsReparsing(false);
+            }
         }
     };
 
@@ -210,6 +315,217 @@ export function ImportPreviewModal({
                         <ActivityIndicator size="large" color="#4ECDC4" />
                     ) : (
                         <ScrollView style={{ flex: 1, marginBottom: 20 }}>
+                            {/* CSV DATA PREVIEW */}
+                            {rawCsvText && (
+                                <View
+                                    style={{
+                                        marginBottom: 20,
+                                        borderWidth: 1,
+                                        borderColor: '#ddd',
+                                        borderRadius: 8,
+                                        overflow: 'hidden',
+                                        backgroundColor: '#f9f9f9',
+                                    }}
+                                >
+                                    <View style={{ backgroundColor: '#E8F8F6', paddingHorizontal: 12, paddingVertical: 10 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#4ECDC4' }}>
+                                            👀 Data Preview
+                                        </Text>
+                                    </View>
+
+                                    <ScrollView horizontal={true} style={{ paddingHorizontal: 12, paddingVertical: 10 }}>
+                                        <View>
+                                            {/* Header Row */}
+                                            <View style={{ flexDirection: 'row', marginBottom: 8, gap: 8 }}>
+                                                {getCSVHeaders().map((header, idx) => {
+                                                    const columnWidth = calculateColumnWidths()[idx];
+                                                    return (
+                                                        <View
+                                                            key={`header-${idx}`}
+                                                            style={{
+                                                                width: columnWidth,
+                                                                backgroundColor: '#E8F8F6',
+                                                                borderRadius: 4,
+                                                                paddingHorizontal: 8,
+                                                                paddingVertical: 6,
+                                                                borderBottomWidth: 2,
+                                                                borderBottomColor: '#4ECDC4',
+                                                            }}
+                                                        >
+                                                            <Text
+                                                                style={{
+                                                                    fontSize: 11,
+                                                                    fontWeight: '600',
+                                                                    color: '#4ECDC4',
+                                                                }}
+                                                                numberOfLines={2}
+                                                            >
+                                                                {header}
+                                                            </Text>
+                                                        </View>
+                                                    );
+                                                })}
+                                            </View>
+
+                                            {/* Data Rows */}
+                                            {getCSVDataRows(2).map((row, rowIdx) => (
+                                                <View key={`row-${rowIdx}`} style={{ flexDirection: 'row', marginBottom: 8, gap: 8 }}>
+                                                    {row.map((cell, cellIdx) => {
+                                                        const columnWidth = calculateColumnWidths()[cellIdx];
+                                                        return (
+                                                            <View
+                                                                key={`cell-${rowIdx}-${cellIdx}`}
+                                                                style={{
+                                                                    width: columnWidth,
+                                                                    backgroundColor: '#fff',
+                                                                    borderRadius: 4,
+                                                                    paddingHorizontal: 8,
+                                                                    paddingVertical: 6,
+                                                                    borderWidth: 1,
+                                                                    borderColor: '#f0f0f0',
+                                                                }}
+                                                            >
+                                                                <Text
+                                                                    style={{
+                                                                        fontSize: 10,
+                                                                        color: '#333',
+                                                                    }}
+                                                                    numberOfLines={2}
+                                                                >
+                                                                    {cell || '—'}
+                                                                </Text>
+                                                            </View>
+                                                        );
+                                                    })}
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </ScrollView>
+                                </View>
+                            )}
+
+                            {/* CSV HEADER MAPPING SECTION */}
+                            {rawCsvText && (
+                                <View
+                                    style={{
+                                        marginBottom: 20,
+                                        borderWidth: 1,
+                                        borderColor: '#ddd',
+                                        borderRadius: 8,
+                                        overflow: 'hidden',
+                                        backgroundColor: '#f9f9f9',
+                                    }}
+                                >
+                                    <View style={{ backgroundColor: '#E8F8F6', paddingHorizontal: 12, paddingVertical: 10 }}>
+                                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#4ECDC4' }}>
+                                            📊 Column Mapping
+                                        </Text>
+                                    </View>
+
+                                    {/* Column Mapping Selectors */}
+                                    <View style={{ paddingHorizontal: 12, paddingVertical: 12, gap: 12 }}>
+                                        {expectedSchema.map((expectedCol, idx) => (
+                                            <View key={idx}>
+                                                <Text style={{ fontSize: 11, fontWeight: '600', color: '#666', marginBottom: 6 }}>
+                                                    {expectedCol}
+                                                </Text>
+                                                <TouchableOpacity
+                                                    onPress={() =>
+                                                        setOpenMappingDropdown(
+                                                            openMappingDropdown === expectedCol ? null : expectedCol
+                                                        )
+                                                    }
+                                                    style={{
+                                                        borderWidth: 1,
+                                                        borderColor: '#ddd',
+                                                        borderRadius: 6,
+                                                        paddingHorizontal: 10,
+                                                        paddingVertical: 8,
+                                                        backgroundColor: columnMappings[expectedCol] ? '#E8F8F6' : '#fff',
+                                                        flexDirection: 'row',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                    }}
+                                                >
+                                                    <Text
+                                                        style={{
+                                                            fontSize: 12,
+                                                            color: columnMappings[expectedCol] ? '#4ECDC4' : '#999',
+                                                            fontWeight: columnMappings[expectedCol] ? '600' : '400',
+                                                        }}
+                                                        numberOfLines={1}
+                                                    >
+                                                        {columnMappings[expectedCol] || 'Select column...'}
+                                                    </Text>
+                                                    <Text style={{ fontSize: 11, color: '#999' }}>▼</Text>
+                                                </TouchableOpacity>
+
+                                                {/* Dropdown Menu */}
+                                                {openMappingDropdown === expectedCol && (
+                                                    <View
+                                                        style={{
+                                                            marginTop: 4,
+                                                            borderWidth: 1,
+                                                            borderColor: '#ddd',
+                                                            borderRadius: 6,
+                                                            backgroundColor: '#fff',
+                                                            maxHeight: 150,
+                                                        }}
+                                                    >
+                                                        <FlatList
+                                                            data={getCSVHeaders()}
+                                                            keyExtractor={(item, i) => `${item}-${i}`}
+                                                            scrollEnabled={true}
+                                                            renderItem={({ item }) => (
+                                                                <TouchableOpacity
+                                                                    onPress={() => handleColumnMapping(expectedCol, item)}
+                                                                    style={{
+                                                                        paddingHorizontal: 10,
+                                                                        paddingVertical: 10,
+                                                                        borderBottomWidth: 1,
+                                                                        borderBottomColor: '#f0f0f0',
+                                                                        backgroundColor:
+                                                                            columnMappings[expectedCol] === item
+                                                                                ? '#E8F8F6'
+                                                                                : '#fff',
+                                                                    }}
+                                                                >
+                                                                    <Text
+                                                                        style={{
+                                                                            fontSize: 12,
+                                                                            color:
+                                                                                columnMappings[expectedCol] === item
+                                                                                    ? '#4ECDC4'
+                                                                                    : '#333',
+                                                                            fontWeight:
+                                                                                columnMappings[expectedCol] === item
+                                                                                    ? '600'
+                                                                                    : '400',
+                                                                        }}
+                                                                        numberOfLines={1}
+                                                                    >
+                                                                        {item}
+                                                                    </Text>
+                                                                </TouchableOpacity>
+                                                            )}
+                                                        />
+                                                    </View>
+                                                )}
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Helper text when no mappings are set */}
+                            {importedData.length === 0 && invalidRows.length === 0 && rawCsvText && (
+                                <View style={{ marginBottom: 20, backgroundColor: '#FFF3CD', borderRadius: 8, padding: 12, borderLeftWidth: 3, borderLeftColor: '#FF9800' }}>
+                                    <Text style={{ fontSize: 12, color: '#856404', fontWeight: '500' }}>
+                                        💡 Select columns above to map your CSV headers to the expected format
+                                    </Text>
+                                </View>
+                            )}
+
                             {/* VALID TRANSACTIONS SECTION */}
                             {importedData.length > 0 && (
                                 <View style={{ marginBottom: 20 }}>
@@ -230,6 +546,9 @@ export function ImportPreviewModal({
                                                     paddingHorizontal: 10,
                                                 }}
                                             >
+                                                <Text style={{ fontSize: 11, color: '#999', marginBottom: 6 }}>
+                                                    Row {transaction.rowIndex}
+                                                </Text>
                                                 <View
                                                     style={{
                                                         flexDirection: 'row',
