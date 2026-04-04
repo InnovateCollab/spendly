@@ -9,6 +9,7 @@ import { database } from '@/database';
 import { Category } from '@/schemas/category';
 import { Transaction } from '@/schemas/transaction';
 import { getInfoAsync, readAsStringAsync } from 'expo-file-system/legacy';
+import { parse_auto, setDefaultFormat } from '@/utils/date-utils';
 
 /**
  * Type alias for transaction data during import
@@ -57,18 +58,6 @@ function findColumnIndex(headers: string[], fieldVariations: string[]): number {
     );
 }
 
-// Parse date from DD/MM/YYYY to Date object
-function formatDate(dateStr: string): Date | null {
-    try {
-        const [day, month, year] = dateStr.split('/');
-        if (!day || !month || !year) return null;
-        const date = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`);
-        return isNaN(date.getTime()) ? null : date;
-    } catch {
-        return null;
-    }
-}
-
 // Normalize tag text (remove emojis, special chars, lowercase)
 function normalizeTag(tag: string): string {
     // Remove emojis and special characters, keep only alphanumeric and spaces
@@ -108,6 +97,7 @@ export function useCSVImport() {
     const [importedData, setImportedData] = useState<ImportTransactionData[]>([]);
     const [invalidRows, setInvalidRows] = useState<InvalidImportRow[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [dateFormat, setDateFormat] = useState<string>('dd.MM.yyyy'); // Default format
 
     // Load categories from database on mount
     useEffect(() => {
@@ -126,6 +116,9 @@ export function useCSVImport() {
 
     const parseCSV = useCallback((csvText: string): ImportResult => {
         try {
+            // Set default format for this parsing session
+            setDefaultFormat(dateFormat);
+
             const lines = csvText.split('\n').filter((line: string) => line.trim());
 
             if (lines.length < 2) {
@@ -156,7 +149,85 @@ export function useCSVImport() {
                 const categoryStr = cols[categoryIndex] || '';
                 const descriptionStr = descriptionIndex !== -1 ? cols[descriptionIndex] : '';
 
-                const date = formatDate(dateStr);
+                const dateISO = parse_auto(dateStr);
+                const date = dateISO ? new Date(dateISO) : null;
+                const amount = parseFloat(amountStr.replace(/,/g, ''));
+                const normalizedTag = normalizeTag(categoryStr);
+                const categoryId = findCategoryId(normalizedTag, categories);
+
+                const errors: string[] = [];
+                if (!date) errors.push('Invalid date format');
+                if (isNaN(amount)) errors.push('Invalid amount');
+                if (!categoryId) errors.push(`Category "${categoryStr}" not found`);
+
+                if (errors.length > 0) {
+                    invalid.push({
+                        rowIndex: lineIndex + 2, // +2 for header and 1-based indexing
+                        date: dateStr,
+                        amount: amountStr,
+                        categoryTag: categoryStr,
+                        description: descriptionStr,
+                        errors,
+                    });
+                } else {
+                    valid.push({
+                        date: date!,
+                        amount,
+                        categoryId: categoryId!,
+                        note: descriptionStr || undefined,
+                    });
+                }
+            });
+
+            if (valid.length === 0 && invalid.length === 0) {
+                Alert.alert('Error', 'No data rows found in CSV');
+                return { valid: [], invalid: [] };
+            }
+
+            return { valid, invalid };
+        } catch (error: any) {
+            Alert.alert('Error', `Failed to parse CSV: ${String(error).substring(0, 100)}`);
+            return { valid: [], invalid: [] };
+        }
+    }, [categories, dateFormat]);
+
+    const parseCSVWithFormat = useCallback((csvText: string, format: string): ImportResult => {
+        try {
+            // Set default format for this parsing session
+            setDefaultFormat(format);
+
+            const lines = csvText.split('\n').filter((line: string) => line.trim());
+
+            if (lines.length < 2) {
+                Alert.alert('Error', 'CSV file is empty or has no data rows');
+                return { valid: [], invalid: [] };
+            }
+
+            const headers = lines[0].split(',').map((h: string) => h.trim());
+
+            // Use field mapping to find columns
+            const dateIndex = findColumnIndex(headers, FIELD_MAPPING.date);
+            const amountIndex = findColumnIndex(headers, FIELD_MAPPING.amount);
+            const categoryIndex = findColumnIndex(headers, FIELD_MAPPING.category);
+            const descriptionIndex = findColumnIndex(headers, FIELD_MAPPING.description);
+
+            if (dateIndex === -1 || amountIndex === -1 || categoryIndex === -1) {
+                Alert.alert('Error', 'CSV must have Date, Amount, and Category columns');
+                return { valid: [], invalid: [] };
+            }
+
+            const valid: ImportTransactionData[] = [];
+            const invalid: InvalidImportRow[] = [];
+
+            lines.slice(1).forEach((line: string, lineIndex: number) => {
+                const cols = line.split(',').map((c: string) => c.trim());
+                const dateStr = cols[dateIndex] || '';
+                const amountStr = cols[amountIndex] || '0';
+                const categoryStr = cols[categoryIndex] || '';
+                const descriptionStr = descriptionIndex !== -1 ? cols[descriptionIndex] : '';
+
+                const dateISO = parse_auto(dateStr);
+                const date = dateISO ? new Date(dateISO) : null;
                 const amount = parseFloat(amountStr.replace(/,/g, ''));
                 const normalizedTag = normalizeTag(categoryStr);
                 const categoryId = findCategoryId(normalizedTag, categories);
@@ -251,12 +322,26 @@ export function useCSVImport() {
         [parseCSV]
     );
 
+    const parseCSVDirectWithFormat = useCallback(
+        (csvText: string, format: string): ImportResult => {
+            const result = parseCSVWithFormat(csvText, format);
+            setImportedData(result.valid);
+            setInvalidRows(result.invalid);
+            setDateFormat(format); // Also update the format state
+            return result;
+        },
+        [parseCSVWithFormat]
+    );
+
     return {
         importedData,
         invalidRows,
         importFromText,
         importFromFile,
         parseCSVDirect,
+        parseCSVDirectWithFormat,
         clearImportedData,
+        dateFormat,
+        setDateFormat,
     };
 }

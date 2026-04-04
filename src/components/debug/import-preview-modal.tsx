@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, ActivityIndicator, Platform, FlatList } from 'react-native';
 import { MaxContentWidth } from '@/constants/theme';
 import { database } from '@/database';
-import { ImportTransactionData, InvalidImportRow } from '@/hooks/use-csv-import';
+import { ImportTransactionData, InvalidImportRow, ImportResult } from '@/hooks/use-csv-import';
 import { Category } from '@/schemas/category';
 
 interface ImportPreviewModalProps {
@@ -11,7 +11,18 @@ interface ImportPreviewModalProps {
     invalidRows?: InvalidImportRow[];
     onClose: () => void;
     onConfirm: () => void;
+    dateFormat?: string;
+    onDateFormatChange?: (format: string) => void;
+    rawCsvText?: string;
+    onReparseWithFormat?: (format: string) => Promise<ImportResult>;
 }
+
+// Common date format orders (separators are handled automatically)
+const COMMON_FORMATS = [
+    { label: 'DD/MM/YYYY', value: 'dd/MM/yyyy' },  // Day first
+    { label: 'MM/DD/YYYY', value: 'MM/dd/yyyy' },  // Month first (US)
+    { label: 'YYYY-MM-DD', value: 'yyyy-MM-dd' },  // ISO format
+];
 
 export function ImportPreviewModal({
     visible,
@@ -19,9 +30,15 @@ export function ImportPreviewModal({
     invalidRows = [],
     onClose,
     onConfirm,
+    dateFormat = 'dd.MM.yyyy',
+    onDateFormatChange,
+    rawCsvText,
+    onReparseWithFormat,
 }: ImportPreviewModalProps) {
     const [categories, setCategories] = useState<Category[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [showFormatPicker, setShowFormatPicker] = useState(false);
+    const [isReparsing, setIsReparsing] = useState(false);
 
     useEffect(() => {
         if (visible) {
@@ -52,6 +69,23 @@ export function ImportPreviewModal({
             day: 'numeric',
             year: 'numeric',
         });
+    };
+
+    const handleFormatChange = async (newFormat: string) => {
+        if (onReparseWithFormat) {
+            try {
+                setIsReparsing(true);
+                await onReparseWithFormat(newFormat);
+                // The parent will update the importedData and invalidRows automatically
+                setShowFormatPicker(false);
+            } catch (error) {
+                console.warn('Failed to reparse with new format:', error);
+            } finally {
+                setIsReparsing(false);
+            }
+        } else {
+            setShowFormatPicker(false);
+        }
     };
 
     return (
@@ -90,6 +124,84 @@ export function ImportPreviewModal({
                     <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 15 }}>
                         📋 Preview Imported Transactions
                     </Text>
+
+                    {/* DATE FORMAT SELECTOR */}
+                    <View style={{ marginBottom: 15 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '500', color: '#666', marginBottom: 8 }}>
+                            Date Format:
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => setShowFormatPicker(!showFormatPicker)}
+                            style={{
+                                borderWidth: 1,
+                                borderColor: '#ddd',
+                                borderRadius: 8,
+                                paddingHorizontal: 12,
+                                paddingVertical: 10,
+                                backgroundColor: '#f9f9f9',
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <Text style={{ fontSize: 14, color: '#333', fontWeight: '500' }}>
+                                {COMMON_FORMATS.find(f => f.value === dateFormat)?.label || dateFormat}
+                            </Text>
+                            <Text style={{ fontSize: 12, color: '#999' }}>▼</Text>
+                        </TouchableOpacity>
+
+                        {/* Format Picker Dropdown */}
+                        {showFormatPicker && (
+                            <View
+                                style={{
+                                    marginTop: 8,
+                                    borderWidth: 1,
+                                    borderColor: '#ddd',
+                                    borderRadius: 8,
+                                    backgroundColor: '#fff',
+                                    maxHeight: 200,
+                                }}
+                            >
+                                <FlatList
+                                    data={COMMON_FORMATS}
+                                    keyExtractor={(item) => item.value}
+                                    scrollEnabled={false}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            onPress={() => handleFormatChange(item.value)}
+                                            disabled={isReparsing}
+                                            style={{
+                                                paddingHorizontal: 12,
+                                                paddingVertical: 12,
+                                                borderBottomWidth: 1,
+                                                borderBottomColor: '#f0f0f0',
+                                                backgroundColor:
+                                                    dateFormat === item.value ? '#E8F8F6' : '#fff',
+                                            }}
+                                        >
+                                            <Text
+                                                style={{
+                                                    fontSize: 13,
+                                                    color:
+                                                        dateFormat === item.value ? '#4ECDC4' : '#333',
+                                                    fontWeight:
+                                                        dateFormat === item.value ? '600' : '400',
+                                                }}
+                                            >
+                                                {item.label}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                            </View>
+                        )}
+                        {isReparsing && (
+                            <View style={{ marginTop: 8, alignItems: 'center' }}>
+                                <ActivityIndicator size="small" color="#4ECDC4" />
+                            </View>
+                        )}
+                    </View>
+
                     <Text style={{ fontSize: 12, color: '#666', marginBottom: 15 }}>
                         Valid: {importedData.length} {invalidRows.length > 0 ? `• Errors: ${invalidRows.length}` : ''}
                     </Text>

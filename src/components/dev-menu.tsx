@@ -17,8 +17,9 @@ export function DevMenu() {
     const [showImportPreview, setShowImportPreview] = useState(false);
     const [showImportOptions, setShowImportOptions] = useState(false);
     const [isLoadingFile, setIsLoadingFile] = useState(false);
+    const [rawCsvText, setRawCsvText] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const { importedData, invalidRows, importFromText, importFromFile, parseCSVDirect, clearImportedData } = useCSVImport();
+    const { importedData, invalidRows, importFromText, importFromFile, parseCSVDirect, parseCSVDirectWithFormat, clearImportedData, dateFormat, setDateFormat } = useCSVImport();
     const { triggerRefresh } = useDatabaseRefresh();
 
     useEffect(() => {
@@ -130,6 +131,7 @@ export function DevMenu() {
 
             const success = importFromText(SAMPLE_CSV);
             if (success) {
+                setRawCsvText(SAMPLE_CSV); // Store raw CSV for re-parsing
                 setShowImportPreview(true);
             }
         } catch (error: any) {
@@ -192,6 +194,11 @@ export function DevMenu() {
 
                 const file = result.assets[0];
                 const parseResult = await importFromFile(file.uri);
+
+                // Get file content for re-parsing
+                const fileContent = await (await import('expo-file-system')).readAsStringAsync(file.uri, { encoding: 'utf8' });
+                setRawCsvText(fileContent); // Store raw CSV for re-parsing
+
                 setIsLoadingFile(false);
 
                 if ((parseResult.valid && parseResult.valid.length > 0) || parseResult.invalid.length > 0) {
@@ -225,6 +232,8 @@ export function DevMenu() {
             const fileContents = await file.text();
             const parseResult = parseCSVDirect(fileContents);
 
+            setRawCsvText(fileContents); // Store raw CSV for re-parsing
+
             setIsLoadingFile(false);
 
             if ((parseResult.valid && parseResult.valid.length > 0) || parseResult.invalid.length > 0) {
@@ -244,7 +253,18 @@ export function DevMenu() {
         }
     }
 
-
+    async function handleReparseWithFormat(newFormat: string) {
+        try {
+            if (rawCsvText) {
+                const parseResult = parseCSVDirectWithFormat(rawCsvText, newFormat);
+                return parseResult;
+            }
+            return { valid: [], invalid: [] };
+        } catch (error: any) {
+            console.error('Failed to reparse CSV:', error);
+            throw error;
+        }
+    }
 
     return (
         <>
@@ -282,6 +302,10 @@ export function DevMenu() {
                 visible={showImportPreview}
                 importedData={importedData}
                 invalidRows={invalidRows}
+                dateFormat={dateFormat}
+                onDateFormatChange={setDateFormat}
+                rawCsvText={rawCsvText}
+                onReparseWithFormat={handleReparseWithFormat}
                 onClose={() => {
                     clearImportedData();
                     setShowImportPreview(false);
